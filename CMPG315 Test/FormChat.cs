@@ -169,7 +169,7 @@ namespace CMPG315_Test
             }
         }
 
-        private void BtnSend_Click(object sender, EventArgs e)
+        private void btnSend_Click(object sender, EventArgs e)
         {
             string message = $"{_username}: {txtbText.Text}";
             byte[] buffer = Encoding.UTF8.GetBytes(message);

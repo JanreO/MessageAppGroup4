@@ -40,8 +40,26 @@ namespace CMPG315_Test
             }
         }
 
-        // 🟢 Button Click Handler for Connection
-        private void BtnConnect_Click(object? sender, EventArgs e) // Fixed casing and nullability
+
+        private static string GetLocalIPAddress()
+        {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    return ip.ToString();
+                }
+            }
+            return "127.0.0.1";
+        }
+
+        private void rbHost_CheckedChanged(object sender, EventArgs e)
+        {
+            ToggleMode();
+        }
+
+        private void btnConnect_Click(object sender, EventArgs e)
         {
             string username = txtbUsername.Text.Trim();
 
@@ -96,26 +114,6 @@ namespace CMPG315_Test
             {
                 MessageBox.Show("Please select Host or Client.");
             }
-        }
-
-        // 🟢 Checkbox Changed Handler
-        private void RbHost_CheckedChanged(object? sender, EventArgs e) // Fixed casing and nullability
-        {
-            ToggleMode();
-        }
-
-        // 🟢 Get Local IP Address
-        private static string GetLocalIPAddress()
-        {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach (var ip in host.AddressList)
-            {
-                if (ip.AddressFamily == AddressFamily.InterNetwork)
-                {
-                    return ip.ToString();
-                }
-            }
-            return "127.0.0.1";
         }
     }
 }
