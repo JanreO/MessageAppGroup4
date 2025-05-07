@@ -10,9 +10,9 @@ namespace CMPG315_Test
 {
     public partial class FormChat : Form
     {
-        private readonly TcpClient _client;
-        private TcpListener? _listener; // Nullable
-        private Thread? _listenerThread; // Nullable
+        private readonly TcpClient? _client;
+        private TcpListener? _listener;
+        private Thread? _listenerThread;
         private readonly string _username;
         private readonly bool _isServer;
         private readonly int _serverPort;
@@ -38,12 +38,12 @@ namespace CMPG315_Test
             };
             _listenerThread.Start();
 
-            // Display the welcome message
             txtbChat.AppendText("You joined the group chat." + Environment.NewLine);
 
-            // Register the FormClosing event to handle disconnect
             this.FormClosing += FormChat_FormClosing;
         }
+
+
         private void FormChat_FormClosing(object? sender, FormClosingEventArgs e)
         {
             try
@@ -82,7 +82,8 @@ namespace CMPG315_Test
                     if (bytesRead > 0)
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        if (IsHandleCreated) // ✅ Check if the form handle is created
+
+                        if (IsHandleCreated)
                         {
                             Invoke((MethodInvoker)delegate
                             {
@@ -94,7 +95,7 @@ namespace CMPG315_Test
             }
             catch (Exception ex)
             {
-                if (IsHandleCreated) // ✅ Avoid invoking if not created
+                if (IsHandleCreated)
                 {
                     Invoke((MethodInvoker)delegate
                     {
@@ -120,7 +121,6 @@ namespace CMPG315_Test
                 StartServer();
             }
 
-            // Register the FormClosing event to handle disconnect
             this.FormClosing += FormChat_FormClosing;
         }
 
@@ -128,7 +128,7 @@ namespace CMPG315_Test
         {
             try
             {
-                _listener = new TcpListener(IPAddress.Parse("192.168.0.22"), _serverPort);
+                _listener = new TcpListener(IPAddress.Any, _serverPort); // Accepts any IP
                 _listener.Start();
                 _serverRunning = true;
 
@@ -138,7 +138,7 @@ namespace CMPG315_Test
                 };
                 _listenerThread.Start();
 
-                MessageBox.Show($"Server started on IP: 192.168.0.22, Port: {_serverPort}");
+                MessageBox.Show($"Server started on Port: {_serverPort}");
             }
             catch (Exception ex)
             {
@@ -161,24 +161,27 @@ namespace CMPG315_Test
                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
                     string username = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                    _clientUsernames[client] = username;
-
-                    // Add to the user list in the UI
-                    Invoke((MethodInvoker)(() =>
+                    if (!_clientUsernames.ContainsValue(username))
                     {
-                        if (!cbUsers.Items.Contains(username))
+                        _clientUsernames[client] = username;
+
+                        Invoke((MethodInvoker)(() =>
                         {
-                            cbUsers.Items.Add(username);
-                            txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
-                        }
-                    }));
+                            if (!cbUsers.Items.Contains(username))
+                            {
+                                cbUsers.Items.Add(username);
+                                txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
+                            }
+                        }));
 
-                    // 🟢 Start a new thread to listen for messages from this client
-                    Thread clientThread = new Thread(() => ListenForClientMessages(client));
-                    clientThread.IsBackground = true;
-                    clientThread.Start();
+                        Thread clientThread = new Thread(() => ListenForClientMessages(client))
+                        {
+                            IsBackground = true
+                        };
+                        clientThread.Start();
 
-                    BroadcastUserList();
+                        BroadcastUserList();
+                    }
                 }
             }
             catch (Exception ex)
@@ -202,13 +205,11 @@ namespace CMPG315_Test
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                        // Show the message in the host's own chat window
                         Invoke((MethodInvoker)delegate
                         {
                             txtbChat.AppendText(message + Environment.NewLine);
                         });
 
-                        // Broadcast the message to all other clients
                         BroadcastMessage(message);
                     }
                 }
@@ -223,7 +224,7 @@ namespace CMPG315_Test
         {
             byte[] buffer = Encoding.UTF8.GetBytes(message);
 
-            foreach (var client in _connectedClients.ToList()) // ✅ Clone the list to avoid modification errors
+            foreach (var client in _connectedClients.ToList())
             {
                 try
                 {
@@ -234,7 +235,6 @@ namespace CMPG315_Test
                     }
                     else
                     {
-                        // Remove disconnected clients
                         _connectedClients.Remove(client);
                         _clientUsernames.Remove(client);
                     }
@@ -244,15 +244,6 @@ namespace CMPG315_Test
                     MessageBox.Show("Failed to send message to client: " + ex.Message);
                 }
             }
-
-            // Display the message in the host's window
-            if (IsHandleCreated)
-            {
-                Invoke((MethodInvoker)(() =>
-                {
-                    txtbChat.AppendText(message + Environment.NewLine);
-                }));
-            }
         }
 
 
@@ -261,18 +252,17 @@ namespace CMPG315_Test
             string userList = "USER_LIST:" + string.Join(",", _clientUsernames.Values);
             byte[] message = Encoding.UTF8.GetBytes(userList);
 
-            foreach (var client in _connectedClients.ToList()) // Make a copy to avoid modification during iteration
+            foreach (var client in _connectedClients.ToList())
             {
                 try
                 {
-                    if (client.Connected) // ✅ Check if the socket is still connected
+                    if (client.Connected)
                     {
                         NetworkStream stream = client.GetStream();
                         stream.Write(message, 0, message.Length);
                     }
                     else
                     {
-                        // If the client is disconnected, remove it from the list
                         _connectedClients.Remove(client);
                         _clientUsernames.Remove(client);
                     }
@@ -289,29 +279,10 @@ namespace CMPG315_Test
             string message = $"{_username}: {txtbText.Text}";
             byte[] buffer = Encoding.UTF8.GetBytes(message);
 
-            foreach (var client in _connectedClients.ToList()) // ✅ ToList() to avoid modification errors
-            {
-                try
-                {
-                    if (client.Connected)
-                    {
-                        NetworkStream stream = client.GetStream();
-                        stream.Write(buffer, 0, buffer.Length);
-                    }
-                    else
-                    {
-                        _connectedClients.Remove(client);
-                        _clientUsernames.Remove(client);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Failed to send message to client: " + ex.Message);
-                }
-            }
-
             txtbChat.AppendText($"Me: {txtbText.Text}" + Environment.NewLine);
             txtbText.Clear();
+
+            BroadcastMessage(message);
         }
     }
 }

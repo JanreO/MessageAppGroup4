@@ -8,9 +8,7 @@ namespace CMPG315_Test
 {
     public partial class FormConnection : Form
     {
-        // Fixed IP and Port for easy configuration
-        private const string DefaultIP = "192.168.0.22";
-        private const int DefaultPort = 8080;
+        
 
         public FormConnection()
         {
@@ -21,8 +19,6 @@ namespace CMPG315_Test
         private void FormConnection_Load(object? sender, EventArgs e) // Added `?` for nullability
         {
             ToggleMode();
-            txtbPort.Text = DefaultPort.ToString(); // Default port displayed
-            txtbIP.Text = DefaultIP; // Always display the static IP
             rbClient.Checked = true;
         }
 
@@ -47,6 +43,8 @@ namespace CMPG315_Test
         private void btnConnect_Click(object sender, EventArgs e)
         {
             string username = txtbUsername.Text.Trim();
+            string ip = txtbIP.Text.Trim();
+            int port = int.TryParse(txtbPort.Text, out int parsedPort) ? parsedPort : 8080;
 
             if (string.IsNullOrWhiteSpace(username))
             {
@@ -59,7 +57,7 @@ namespace CMPG315_Test
                 try
                 {
                     // Start the server as the host
-                    FormChat chatForm = new FormChat(isServer: true, port: DefaultPort, username: username);
+                    FormChat chatForm = new FormChat(isServer: true, port: port, username: username);
                     chatForm.Show();
                     this.Hide();
                 }
@@ -72,17 +70,17 @@ namespace CMPG315_Test
             {
                 try
                 {
-                    if (IsServerAvailable(DefaultIP, DefaultPort))
+                    if (IsServerAvailable(ip, port))
                     {
                         TcpClient client = new TcpClient();
-                        client.Connect(DefaultIP, DefaultPort);
+                        client.Connect(ip, port);
 
                         // Send the username to the server
                         NetworkStream stream = client.GetStream();
                         byte[] buffer = Encoding.UTF8.GetBytes(username);
                         stream.Write(buffer, 0, buffer.Length);
 
-                        MessageBox.Show($"Connected successfully to {DefaultIP}:{DefaultPort}");
+                        MessageBox.Show($"Connected successfully to {ip}:{port}");
 
                         FormChat chatForm = new FormChat(client, username);
                         chatForm.Show();
@@ -90,12 +88,12 @@ namespace CMPG315_Test
                     }
                     else
                     {
-                        MessageBox.Show($"Cannot connect to {DefaultIP}:{DefaultPort}. No host found.");
+                        MessageBox.Show($"Cannot connect to {ip}:{port}. No host found.");
                     }
                 }
                 catch (SocketException)
                 {
-                    MessageBox.Show($"Failed to connect to {DefaultIP}:{DefaultPort}. Is the server running and port forwarded?");
+                    MessageBox.Show($"Failed to connect to {ip}:{port}. Is the server running and port forwarded?");
                 }
                 catch (Exception ex)
                 {
