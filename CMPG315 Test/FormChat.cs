@@ -37,7 +37,36 @@ namespace CMPG315_Test
                 IsBackground = true
             };
             _listenerThread.Start();
+
+            // Display the welcome message
+            txtbChat.AppendText("You joined the group chat." + Environment.NewLine);
+
+            // Register the FormClosing event to handle disconnect
+            this.FormClosing += FormChat_FormClosing;
         }
+        private void FormChat_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            try
+            {
+                if (_client != null && _client.Connected)
+                {
+                    _client.Close();
+                }
+                if (_listener != null && _serverRunning)
+                {
+                    _listener.Stop();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error while disconnecting: {ex.Message}");
+            }
+            finally
+            {
+                Application.Exit(); // Close the application entirely
+            }
+        }
+
 
         private void ListenForServerMessages()
         {
@@ -81,6 +110,9 @@ namespace CMPG315_Test
             {
                 StartServer();
             }
+
+            // Register the FormClosing event to handle disconnect
+            this.FormClosing += FormChat_FormClosing;
         }
 
         private void StartServer()

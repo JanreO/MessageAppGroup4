@@ -110,7 +110,9 @@
             Controls.Add(label2);
             Controls.Add(cbUsers);
             Controls.Add(label1);
+            MaximizeBox = false;
             Name = "FormChat";
+            StartPosition = FormStartPosition.CenterScreen;
             Text = "FormChat";
             ResumeLayout(false);
             PerformLayout();

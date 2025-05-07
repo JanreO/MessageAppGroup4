@@ -135,7 +135,9 @@
             Controls.Add(label3);
             Controls.Add(label2);
             Controls.Add(label1);
+            MaximizeBox = false;
             Name = "FormConnection";
+            StartPosition = FormStartPosition.CenterScreen;
             Text = "FormConnection";
             Load += FormConnection_Load;
             ResumeLayout(false);

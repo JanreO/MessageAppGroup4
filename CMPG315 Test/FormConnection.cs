@@ -18,15 +18,14 @@ namespace CMPG315_Test
             this.Load += FormConnection_Load;
         }
 
-        // 🟢 Event Handler for Form Load
         private void FormConnection_Load(object? sender, EventArgs e) // Added `?` for nullability
         {
             ToggleMode();
             txtbPort.Text = DefaultPort.ToString(); // Default port displayed
             txtbIP.Text = DefaultIP; // Always display the static IP
+            rbClient.Checked = true;
         }
 
-        // 🟢 Enable/Disable IP Textbox based on mode (Host or Client)
         private void ToggleMode()
         {
             if (rbHost.Checked)
@@ -73,19 +72,26 @@ namespace CMPG315_Test
             {
                 try
                 {
-                    TcpClient client = new TcpClient();
-                    client.Connect(DefaultIP, DefaultPort);
+                    if (IsServerAvailable(DefaultIP, DefaultPort))
+                    {
+                        TcpClient client = new TcpClient();
+                        client.Connect(DefaultIP, DefaultPort);
 
-                    // Send the username to the server
-                    NetworkStream stream = client.GetStream();
-                    byte[] buffer = Encoding.UTF8.GetBytes(username);
-                    stream.Write(buffer, 0, buffer.Length);
+                        // Send the username to the server
+                        NetworkStream stream = client.GetStream();
+                        byte[] buffer = Encoding.UTF8.GetBytes(username);
+                        stream.Write(buffer, 0, buffer.Length);
 
-                    MessageBox.Show($"Connected successfully to {DefaultIP}:{DefaultPort}");
+                        MessageBox.Show($"Connected successfully to {DefaultIP}:{DefaultPort}");
 
-                    FormChat chatForm = new FormChat(client, username);
-                    chatForm.Show();
-                    this.Hide();
+                        FormChat chatForm = new FormChat(client, username);
+                        chatForm.Show();
+                        this.Hide();
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Cannot connect to {DefaultIP}:{DefaultPort}. No host found.");
+                    }
                 }
                 catch (SocketException)
                 {
@@ -101,5 +107,27 @@ namespace CMPG315_Test
                 MessageBox.Show("Please select Host or Client.");
             }
         }
+        private bool IsServerAvailable(string ip, int port)
+        {
+            try
+            {
+                using (TcpClient tcpClient = new TcpClient())
+                {
+                    var result = tcpClient.BeginConnect(ip, port, null, null);
+                    var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
+                    if (!success)
+                    {
+                        return false;
+                    }
+                    tcpClient.EndConnect(result);
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
     }
 }
