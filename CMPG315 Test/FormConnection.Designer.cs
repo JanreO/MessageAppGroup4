@@ -90,7 +90,7 @@
             // rbHost
             // 
             rbHost.AutoSize = true;
-            rbHost.Location = new Point(71, 99);
+            rbHost.Location = new Point(139, 99);
             rbHost.Name = "rbHost";
             rbHost.Size = new Size(50, 19);
             rbHost.TabIndex = 6;
@@ -102,7 +102,7 @@
             // rbClient
             // 
             rbClient.AutoSize = true;
-            rbClient.Location = new Point(71, 124);
+            rbClient.Location = new Point(139, 124);
             rbClient.Name = "rbClient";
             rbClient.Size = new Size(56, 19);
             rbClient.TabIndex = 7;
