@@ -82,16 +82,25 @@ namespace CMPG315_Test
                     if (bytesRead > 0)
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        Invoke((MethodInvoker)delegate
+                        if (IsHandleCreated) // ✅ Check if the form handle is created
                         {
-                            txtbChat.AppendText(message + Environment.NewLine);
-                        });
+                            Invoke((MethodInvoker)delegate
+                            {
+                                txtbChat.AppendText(message + Environment.NewLine);
+                            });
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error receiving message: " + ex.Message);
+                if (IsHandleCreated) // ✅ Avoid invoking if not created
+                {
+                    Invoke((MethodInvoker)delegate
+                    {
+                        MessageBox.Show("Error receiving message: " + ex.Message);
+                    });
+                }
             }
         }
 
@@ -237,12 +246,21 @@ namespace CMPG315_Test
             string userList = "USER_LIST:" + string.Join(",", _clientUsernames.Values);
             byte[] message = Encoding.UTF8.GetBytes(userList);
 
-            foreach (var client in _connectedClients)
+            foreach (var client in _connectedClients.ToList()) // Make a copy to avoid modification during iteration
             {
                 try
                 {
-                    NetworkStream stream = client.GetStream();
-                    stream.Write(message, 0, message.Length);
+                    if (client.Connected) // ✅ Check if the socket is still connected
+                    {
+                        NetworkStream stream = client.GetStream();
+                        stream.Write(message, 0, message.Length);
+                    }
+                    else
+                    {
+                        // If the client is disconnected, remove it from the list
+                        _connectedClients.Remove(client);
+                        _clientUsernames.Remove(client);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -253,33 +271,32 @@ namespace CMPG315_Test
 
         private void btnSend_Click(object sender, EventArgs e)
         {
-            if (_client == null)
+            string message = $"{_username}: {txtbText.Text}";
+            byte[] buffer = Encoding.UTF8.GetBytes(message);
+
+            foreach (var client in _connectedClients.ToList()) // ✅ ToList() to avoid modification errors
             {
-                MessageBox.Show("You are not connected to the server. Please check your connection.");
-                return;
+                try
+                {
+                    if (client.Connected)
+                    {
+                        NetworkStream stream = client.GetStream();
+                        stream.Write(buffer, 0, buffer.Length);
+                    }
+                    else
+                    {
+                        _connectedClients.Remove(client);
+                        _clientUsernames.Remove(client);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Failed to send message to client: " + ex.Message);
+                }
             }
 
-            if (!_client.Connected)
-            {
-                MessageBox.Show("Connection to the server was lost. Please reconnect.");
-                return;
-            }
-
-            try
-            {
-                string message = $"{_username}: {txtbText.Text}";
-                byte[] buffer = Encoding.UTF8.GetBytes(message);
-
-                NetworkStream stream = _client.GetStream();
-                stream.Write(buffer, 0, buffer.Length);
-
-                txtbChat.AppendText($"Me: {txtbText.Text}" + Environment.NewLine);
-                txtbText.Clear();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to send message: {ex.Message}");
-            }
+            txtbChat.AppendText($"Me: {txtbText.Text}" + Environment.NewLine);
+            txtbText.Clear();
         }
     }
 }
