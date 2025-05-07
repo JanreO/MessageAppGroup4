@@ -9,7 +9,7 @@ namespace CMPG315_Test
     public partial class FormConnection : Form
     {
         // Fixed IP and Port for easy configuration
-        private const string DefaultIP = "192.168.0.22";
+        private const string DefaultIP = "192.168.0.40";
         private const int DefaultPort = 8080;
 
         public FormConnection()
