@@ -23,6 +23,7 @@ namespace CMPG315_Test
         {
             ToggleMode();
             txtbPort.Text = DefaultPort.ToString(); // Default port displayed
+            txtbIP.Text = DefaultIP; // Always display the static IP
         }
 
         // 🟢 Enable/Disable IP Textbox based on mode (Host or Client)
@@ -30,29 +31,14 @@ namespace CMPG315_Test
         {
             if (rbHost.Checked)
             {
-                txtbIP.Enabled = false;
-                txtbIP.Text = DefaultIP;
+                txtbIP.Enabled = false; // Host does not need to enter IP
             }
             else if (rbClient.Checked)
             {
-                txtbIP.Enabled = true;
-                txtbIP.Clear();
+                txtbIP.Enabled = true;  // Client can enter IP if needed
             }
         }
 
-
-        private static string GetLocalIPAddress()
-        {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach (var ip in host.AddressList)
-            {
-                if (ip.AddressFamily == AddressFamily.InterNetwork)
-                {
-                    return ip.ToString();
-                }
-            }
-            return "127.0.0.1";
-        }
 
         private void rbHost_CheckedChanged(object sender, EventArgs e)
         {

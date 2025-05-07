@@ -87,7 +87,7 @@ namespace CMPG315_Test
         {
             try
             {
-                _listener = new TcpListener(IPAddress.Any, _serverPort);
+                _listener = new TcpListener(IPAddress.Parse("192.168.0.22"), _serverPort);
                 _listener.Start();
                 _serverRunning = true;
 
@@ -97,8 +97,7 @@ namespace CMPG315_Test
                 };
                 _listenerThread.Start();
 
-                string localIP = GetLocalIPAddress();
-                MessageBox.Show($"Server started on Local IP: {localIP}:{_serverPort}");
+                MessageBox.Show($"Server started on IP: 192.168.0.22, Port: {_serverPort}");
             }
             catch (Exception ex)
             {
@@ -106,18 +105,6 @@ namespace CMPG315_Test
             }
         }
 
-        private static string GetLocalIPAddress()
-        {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach (var ip in host.AddressList)
-            {
-                if (ip.AddressFamily == AddressFamily.InterNetwork)
-                {
-                    return ip.ToString();
-                }
-            }
-            return "127.0.0.1";
-        }
 
         private void ListenForClients()
         {
