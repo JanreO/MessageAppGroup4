@@ -8,7 +8,7 @@ namespace CMPG315_Test
 {
     public partial class FormConnection : Form
     {
-        
+
 
         public FormConnection()
         {
@@ -26,7 +26,7 @@ namespace CMPG315_Test
         {
             if (rbHost.Checked)
             {
-                txtbIP.Enabled = false; // Host does not need to enter IP
+                txtbIP.Enabled = true; // Host does not need to enter IP
             }
             else if (rbClient.Checked)
             {
