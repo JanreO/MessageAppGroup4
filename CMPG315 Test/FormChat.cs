@@ -166,11 +166,14 @@ namespace CMPG315_Test
                     // Add to the user list in the UI
                     Invoke((MethodInvoker)(() =>
                     {
-                        cbUsers.Items.Add(username);
-                        txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
+                        if (!cbUsers.Items.Contains(username))
+                        {
+                            cbUsers.Items.Add(username);
+                            txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
+                        }
                     }));
 
-                    // Start a new thread to listen for messages from this client
+                    // 🟢 Start a new thread to listen for messages from this client
                     Thread clientThread = new Thread(() => ListenForClientMessages(client));
                     clientThread.IsBackground = true;
                     clientThread.Start();
@@ -220,12 +223,21 @@ namespace CMPG315_Test
         {
             byte[] buffer = Encoding.UTF8.GetBytes(message);
 
-            foreach (var client in _connectedClients)
+            foreach (var client in _connectedClients.ToList()) // ✅ Clone the list to avoid modification errors
             {
                 try
                 {
-                    NetworkStream stream = client.GetStream();
-                    stream.Write(buffer, 0, buffer.Length);
+                    if (client.Connected)
+                    {
+                        NetworkStream stream = client.GetStream();
+                        stream.Write(buffer, 0, buffer.Length);
+                    }
+                    else
+                    {
+                        // Remove disconnected clients
+                        _connectedClients.Remove(client);
+                        _clientUsernames.Remove(client);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -233,11 +245,14 @@ namespace CMPG315_Test
                 }
             }
 
-            // Also display the message in the host's window
-            Invoke((MethodInvoker)(() =>
+            // Display the message in the host's window
+            if (IsHandleCreated)
             {
-                txtbChat.AppendText(message + Environment.NewLine);
-            }));
+                Invoke((MethodInvoker)(() =>
+                {
+                    txtbChat.AppendText(message + Environment.NewLine);
+                }));
+            }
         }
 
 
