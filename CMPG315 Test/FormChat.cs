@@ -190,14 +190,33 @@ namespace CMPG315_Test
 
         private void btnSend_Click(object sender, EventArgs e)
         {
-            string message = $"{_username}: {txtbText.Text}";
-            byte[] buffer = Encoding.UTF8.GetBytes(message);
+            if (_client == null)
+            {
+                MessageBox.Show("You are not connected to the server. Please check your connection.");
+                return;
+            }
 
-            NetworkStream stream = _client.GetStream();
-            stream.Write(buffer, 0, buffer.Length);
+            if (!_client.Connected)
+            {
+                MessageBox.Show("Connection to the server was lost. Please reconnect.");
+                return;
+            }
 
-            txtbChat.AppendText($"Me: {txtbText.Text}" + Environment.NewLine);
-            txtbText.Clear();
+            try
+            {
+                string message = $"{_username}: {txtbText.Text}";
+                byte[] buffer = Encoding.UTF8.GetBytes(message);
+
+                NetworkStream stream = _client.GetStream();
+                stream.Write(buffer, 0, buffer.Length);
+
+                txtbChat.AppendText($"Me: {txtbText.Text}" + Environment.NewLine);
+                txtbText.Clear();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to send message: {ex.Message}");
+            }
         }
     }
 }
