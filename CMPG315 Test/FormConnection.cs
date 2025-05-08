@@ -111,20 +111,20 @@ namespace CMPG315_Test
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    tcpClient.Connect(ip, port + 1); // Connect to the status port
+                    tcpClient.Connect(ip, port + 1); // ✅ Connect to the status port
                     NetworkStream stream = tcpClient.GetStream();
-                    byte[] buffer = new byte[1];
-                    stream.Read(buffer, 0, buffer.Length);
 
-                    string response = Encoding.UTF8.GetString(buffer);
-                    return response == "1"; // Only return true if the server responded with "1"
+                    byte[] buffer = new byte[1024];
+                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
+
+                    string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    return response == "1";
                 }
             }
-            catch
+            catch (Exception)
             {
                 return false;
             }
         }
-
     }
 }

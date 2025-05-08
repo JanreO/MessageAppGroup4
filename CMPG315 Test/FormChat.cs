@@ -32,11 +32,11 @@ namespace CMPG315_Test
             _username = username;
             _isServer = false;
 
-            // Set initial status to Offline (Red color)
+            // Set status to Offline initially
             lblConnectionStatus.Text = "Offline";
             lblConnectionStatus.ForeColor = Color.Red;
 
-            // Start the listener thread
+            // Start the listener thread for server messages
             _listenerThread = new Thread(ListenForServerMessages)
             {
                 IsBackground = true
@@ -45,7 +45,6 @@ namespace CMPG315_Test
 
             txtbChat.AppendText("You joined the group chat." + Environment.NewLine);
 
-            // Register the FormClosing event to handle disconnect
             this.FormClosing += FormChat_FormClosing;
 
             // Start monitoring connection status
@@ -154,46 +153,34 @@ namespace CMPG315_Test
         {
             try
             {
-                try
+                NetworkStream stream = _client.GetStream();
+                byte[] buffer = new byte[1024];
+
+                while (true)
                 {
-                    NetworkStream stream = _client.GetStream();
-                    byte[] buffer = new byte[1024];
+                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
 
-                    while (true)
+                    if (bytesRead > 0)
                     {
-                        int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                        string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                        if (bytesRead > 0)
+                        if (message == "CONFIRMED")
                         {
-                            string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                            if (message == "PING")
+                            Invoke((MethodInvoker)delegate
                             {
-                                byte[] pong = Encoding.UTF8.GetBytes("PONG");
-                                stream.Write(pong, 0, pong.Length);
-                                continue;
-                            }
-
-                            if (IsHandleCreated)
-                            {
-                                Invoke((MethodInvoker)delegate
-                                {
-                                    txtbChat.AppendText(message + Environment.NewLine);
-                                });
-                            }
+                                lblConnectionStatus.Text = "Online";
+                                lblConnectionStatus.ForeColor = Color.LimeGreen;
+                            });
+                            continue;
                         }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (IsHandleCreated)
-                    {
-                        Invoke((MethodInvoker)delegate
+
+                        if (IsHandleCreated)
                         {
-                            lblConnectionStatus.Text = "Offline";
-                            lblConnectionStatus.ForeColor = Color.Red;
-                            MessageBox.Show("Error receiving message: " + ex.Message);
-                        });
+                            Invoke((MethodInvoker)delegate
+                            {
+                                txtbChat.AppendText(message + Environment.NewLine);
+                            });
+                        }
                     }
                 }
             }
@@ -203,6 +190,8 @@ namespace CMPG315_Test
                 {
                     Invoke((MethodInvoker)delegate
                     {
+                        lblConnectionStatus.Text = "Offline";
+                        lblConnectionStatus.ForeColor = Color.Red;
                         MessageBox.Show("Error receiving message: " + ex.Message);
                     });
                 }
@@ -223,6 +212,9 @@ namespace CMPG315_Test
             if (_isServer)
             {
                 StartServer();
+                // Set status to Hosting (Light Blue)
+                lblConnectionStatus.Text = "Hosting";
+                lblConnectionStatus.ForeColor = Color.LightBlue;
             }
 
             this.FormClosing += FormChat_FormClosing;
@@ -242,6 +234,13 @@ namespace CMPG315_Test
                 };
                 _listenerThread.Start();
 
+                // ✅ Start the server status listener on a separate thread
+                Thread statusThread = new Thread(ListenForServerStatus)
+                {
+                    IsBackground = true
+                };
+                statusThread.Start();
+
                 MessageBox.Show($"Server started on Port: {_serverPort}");
             }
             catch (Exception ex)
@@ -249,6 +248,8 @@ namespace CMPG315_Test
                 MessageBox.Show("Error starting server: " + ex.Message);
             }
         }
+
+
 
 
         private void ListenForClients()
@@ -278,6 +279,11 @@ namespace CMPG315_Test
                             }
                         }));
 
+                        // ✅ Immediately send confirmation to the client
+                        byte[] confirmation = Encoding.UTF8.GetBytes("CONFIRMED");
+                        stream.Write(confirmation, 0, confirmation.Length);
+
+                        // Start listening for client messages
                         Thread clientThread = new Thread(() => ListenForClientMessages(client))
                         {
                             IsBackground = true
@@ -328,7 +334,7 @@ namespace CMPG315_Test
         {
             try
             {
-                TcpListener statusListener = new TcpListener(IPAddress.Any, _serverPort + 1); // Use a different port
+                TcpListener statusListener = new TcpListener(IPAddress.Any, _serverPort + 1);
                 statusListener.Start();
                 while (_serverRunning)
                 {
