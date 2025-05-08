@@ -331,16 +331,20 @@ namespace CMPG315_Test
                             continue;
                         }
 
+                        // 🟢 Display the message in the server's own chat window
+                        string displayMessage = $"[Client {_clientUsernames[client]}]: {message}";
+
+                        // Update the server's chat window
                         Invoke((MethodInvoker)delegate
                         {
-                            txtbChat.AppendText($"[Client]: {message}" + Environment.NewLine);
+                            txtbChat.AppendText(displayMessage + Environment.NewLine);
                         });
 
+                        // 🟢 Broadcast the message to all other clients
                         BroadcastMessage($"{_clientUsernames[client]}: {message}");
                     }
                 }
             }
-
             catch (Exception ex)
             {
                 if (IsHandleCreated)
