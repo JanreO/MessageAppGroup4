@@ -8,15 +8,13 @@ namespace CMPG315_Test
 {
     public partial class FormConnection : Form
     {
-
-
         public FormConnection()
         {
             InitializeComponent();
             this.Load += FormConnection_Load;
         }
 
-        private void FormConnection_Load(object? sender, EventArgs e) // Added `?` for nullability
+        private void FormConnection_Load(object? sender, EventArgs e)
         {
             ToggleMode();
             rbClient.Checked = true;
@@ -26,15 +24,13 @@ namespace CMPG315_Test
         {
             if (rbHost.Checked)
             {
-                txtbIP.Enabled = true; // Host does not need to enter IP
+                txtbIP.Enabled = false;
             }
             else if (rbClient.Checked)
             {
-                txtbIP.Enabled = true;  // Client can enter IP if needed
+                txtbIP.Enabled = true;
             }
         }
-
-
         private void rbHost_CheckedChanged(object sender, EventArgs e)
         {
             ToggleMode();
@@ -109,7 +105,7 @@ namespace CMPG315_Test
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    tcpClient.Connect(ip, port + 1); // ✅ Connects to the +1 port for status
+                    tcpClient.Connect(ip, port + 1); // ✅ Check the status port
                     NetworkStream stream = tcpClient.GetStream();
 
                     byte[] buffer = new byte[1024];
