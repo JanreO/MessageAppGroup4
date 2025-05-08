@@ -66,7 +66,7 @@
             // lblConnectionStatus
             // 
             lblConnectionStatus.AutoSize = true;
-            lblConnectionStatus.BackColor = Color.White;
+            lblConnectionStatus.BackColor = SystemColors.Menu;
             lblConnectionStatus.ForeColor = Color.Red;
             lblConnectionStatus.Location = new Point(724, 9);
             lblConnectionStatus.Name = "lblConnectionStatus";

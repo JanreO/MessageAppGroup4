@@ -214,7 +214,7 @@ namespace CMPG315_Test
                 StartServer();
                 // Set status to Hosting (Light Blue)
                 lblConnectionStatus.Text = "Hosting";
-                lblConnectionStatus.ForeColor = Color.LightBlue;
+                lblConnectionStatus.ForeColor = Color.Blue;
             }
 
             this.FormClosing += FormChat_FormClosing;

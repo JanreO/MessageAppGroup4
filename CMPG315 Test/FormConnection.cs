@@ -56,7 +56,6 @@ namespace CMPG315_Test
             {
                 try
                 {
-                    // Start the server as the host
                     FormChat chatForm = new FormChat(isServer: true, port: port, username: username);
                     chatForm.Show();
                     this.Hide();
@@ -75,7 +74,6 @@ namespace CMPG315_Test
                         TcpClient client = new TcpClient();
                         client.Connect(ip, port);
 
-                        // Send the username to the server
                         NetworkStream stream = client.GetStream();
                         byte[] buffer = Encoding.UTF8.GetBytes(username);
                         stream.Write(buffer, 0, buffer.Length);
@@ -111,7 +109,7 @@ namespace CMPG315_Test
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    tcpClient.Connect(ip, port + 1); // ✅ Connect to the status port
+                    tcpClient.Connect(ip, port + 1);
                     NetworkStream stream = tcpClient.GetStream();
 
                     byte[] buffer = new byte[1024];
