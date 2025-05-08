@@ -331,7 +331,6 @@ namespace CMPG315_Test
                             continue;
                         }
 
-                        // ✅ Display the message in the server's own chat window
                         Invoke((MethodInvoker)delegate
                         {
                             txtbChat.AppendText($"[Client]: {message}" + Environment.NewLine);
@@ -341,6 +340,7 @@ namespace CMPG315_Test
                     }
                 }
             }
+
             catch (Exception ex)
             {
                 if (IsHandleCreated)
