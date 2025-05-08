@@ -52,7 +52,7 @@ namespace CMPG315_Test
             {
                 try
                 {
-                    FormChat chatForm = new FormChat(isServer: true, port: port, username: username);
+                    FormChat chatForm = new FormChat(isServer: true, port: port, username: username, isOnline: true);
                     chatForm.Show();
                     this.Hide();
                 }
@@ -65,7 +65,8 @@ namespace CMPG315_Test
             {
                 try
                 {
-                    if (IsServerAvailable(ip, port))
+                    bool isOnline = IsServerAvailable(ip, port);
+                    if (isOnline)
                     {
                         TcpClient client = new TcpClient();
                         client.Connect(ip, port);
@@ -76,7 +77,7 @@ namespace CMPG315_Test
 
                         MessageBox.Show($"Connected successfully to {ip}:{port}");
 
-                        FormChat chatForm = new FormChat(client, username);
+                        FormChat chatForm = new FormChat(client, username, isOnline);
                         chatForm.Show();
                         this.Hide();
                     }
@@ -105,17 +106,21 @@ namespace CMPG315_Test
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    tcpClient.Connect(ip, port + 1); // ✅ Check the status port
+                    tcpClient.Connect(ip, port + 1);
                     NetworkStream stream = tcpClient.GetStream();
-
                     byte[] buffer = new byte[1024];
                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
-
                     string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    return response == "1";
+
+                    // ✅ Automatically update the label if the server responds
+                    if (response == "1")
+                    {
+                        return true;
+                    }
                 }
+                return false;
             }
-            catch (Exception)
+            catch
             {
                 return false;
             }

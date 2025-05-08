@@ -22,7 +22,7 @@ namespace CMPG315_Test
         private readonly Dictionary<TcpClient, string> _clientUsernames = new();
 
         // Client constructor
-        public FormChat(TcpClient client, string username)
+        public FormChat(TcpClient client, string username, bool isOnline)
         {
             InitializeComponent();
             cbUsers.Items.Add("Company Group");
@@ -32,8 +32,16 @@ namespace CMPG315_Test
             _username = username;
             _isServer = false;
 
-            lblConnectionStatus.Text = "Offline";
-            lblConnectionStatus.ForeColor = Color.Red;
+            if (isOnline)
+            {
+                lblConnectionStatus.Text = "Online";
+                lblConnectionStatus.ForeColor = Color.LimeGreen;
+            }
+            else
+            {
+                lblConnectionStatus.Text = "Offline";
+                lblConnectionStatus.ForeColor = Color.Red;
+            }
 
             _listenerThread = new Thread(ListenForServerMessages)
             {
@@ -45,10 +53,6 @@ namespace CMPG315_Test
 
             this.FormClosing += FormChat_FormClosing;
         }
-
-
-
-
         private void FormChat_FormClosing(object? sender, FormClosingEventArgs e)
         {
             try
@@ -100,6 +104,18 @@ namespace CMPG315_Test
                             Invoke((MethodInvoker)delegate
                             {
                                 txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
+                                cbUsers.Items.Remove(username);
+                            });
+                            continue;
+                        }
+
+                        if (message == "SERVER_DOWN")
+                        {
+                            Invoke((MethodInvoker)delegate
+                            {
+                                lblConnectionStatus.Text = "Offline";
+                                lblConnectionStatus.ForeColor = Color.Red;
+                                txtbChat.AppendText("Server has disconnected." + Environment.NewLine);
                             });
                             continue;
                         }
@@ -129,7 +145,7 @@ namespace CMPG315_Test
         }
 
         // Host constructor
-        public FormChat(bool isServer, int port, string username)
+        public FormChat(bool isServer, int port, string username, bool isOnline)
         {
             InitializeComponent();
             cbUsers.Items.Add("Company Group");
@@ -139,15 +155,29 @@ namespace CMPG315_Test
             _serverPort = port;
             _username = username;
 
-            if (_isServer)
+            if (isServer)
             {
                 StartServer();
                 lblConnectionStatus.Text = "Hosting";
                 lblConnectionStatus.ForeColor = Color.Blue;
             }
+            else
+            {
+                if (isOnline)
+                {
+                    lblConnectionStatus.Text = "Online";
+                    lblConnectionStatus.ForeColor = Color.LimeGreen;
+                }
+                else
+                {
+                    lblConnectionStatus.Text = "Offline";
+                    lblConnectionStatus.ForeColor = Color.Red;
+                }
+            }
 
             this.FormClosing += FormChat_FormClosing;
         }
+
 
         private void StartServer()
         {
