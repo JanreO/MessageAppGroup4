@@ -109,7 +109,7 @@ namespace CMPG315_Test
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    tcpClient.Connect(ip, port + 1);
+                    tcpClient.Connect(ip, port + 1); // ✅ Connects to the +1 port for status
                     NetworkStream stream = tcpClient.GetStream();
 
                     byte[] buffer = new byte[1024];
