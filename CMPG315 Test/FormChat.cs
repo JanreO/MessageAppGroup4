@@ -102,7 +102,6 @@ namespace CMPG315_Test
             {
                 if (_client != null && _client.Connected)
                 {
-                    // Send a small ping packet
                     NetworkStream stream = _client.GetStream();
                     byte[] ping = Encoding.UTF8.GetBytes("PING::CHECK");
                     stream.Write(ping, 0, ping.Length);
@@ -115,7 +114,10 @@ namespace CMPG315_Test
                     string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
                     // ✅ Only return true if the response is exactly "PONG::ALIVE"
-                    return response == "PONG::ALIVE";
+                    if (response == "PONG::ALIVE")
+                    {
+                        return true;
+                    }
                 }
                 return false;
             }
@@ -166,10 +168,10 @@ namespace CMPG315_Test
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                        // 🟢 Ignore PING and PONG messages from display
-                        if (message.StartsWith("PING::") || message.StartsWith("PONG::"))
+                        // ✅ Ignore PING and PONG messages from display
+                        if (message.Contains("PING::CHECK") || message.Contains("PONG::ALIVE"))
                         {
-                            continue;
+                            continue; // Skip adding it to the chat window
                         }
 
                         if (message == "CONFIRMED")
@@ -200,7 +202,11 @@ namespace CMPG315_Test
                     {
                         lblConnectionStatus.Text = "Offline";
                         lblConnectionStatus.ForeColor = Color.Red;
-                        MessageBox.Show("Error receiving message: " + ex.Message);
+
+                        if (!ex.Message.Contains("Overlapped I/O") && !ex.Message.Contains("WSACancelBlockingCall"))
+                        {
+                            MessageBox.Show("Error receiving message: " + ex.Message);
+                        }
                     });
                 }
             }
@@ -275,10 +281,12 @@ namespace CMPG315_Test
                     string username = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
                     // ✅ If it's a ping check, respond and skip processing
-                    if (username == "PING::CHECK")
+                    if (username.Contains("PING::CHECK"))
                     {
                         byte[] pongResponse = Encoding.UTF8.GetBytes("PONG::ALIVE");
                         stream.Write(pongResponse, 0, pongResponse.Length);
+
+                        // Close the client after responding
                         client.Close();
                         continue;
                     }
