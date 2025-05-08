@@ -46,81 +46,6 @@ namespace CMPG315_Test
             this.FormClosing += FormChat_FormClosing;
         }
 
-        private void StartConnectionMonitor()
-        {
-            Thread connectionMonitor = new Thread(() =>
-            {
-                while (true)
-                {
-                    Thread.Sleep(3000); // Check every 3 seconds
-
-                    if (_client != null && _client.Connected)
-                    {
-                        if (CheckServerAvailability())
-                        {
-                            // Server is still reachable
-                            Invoke((MethodInvoker)delegate
-                            {
-                                lblConnectionStatus.Text = "Online";
-                                lblConnectionStatus.ForeColor = Color.LimeGreen;
-                            });
-                        }
-                        else
-                        {
-                            // Server is not reachable
-                            Invoke((MethodInvoker)delegate
-                            {
-                                lblConnectionStatus.Text = "Offline";
-                                lblConnectionStatus.ForeColor = Color.Red;
-                            });
-                        }
-                    }
-                    else
-                    {
-                        // No connection
-                        Invoke((MethodInvoker)delegate
-                        {
-                            lblConnectionStatus.Text = "Offline";
-                            lblConnectionStatus.ForeColor = Color.Red;
-                        });
-                    }
-                }
-            });
-
-            connectionMonitor.IsBackground = true;
-            connectionMonitor.Start();
-        }
-
-        private bool CheckServerAvailability()
-        {
-            try
-            {
-                if (_client != null && _client.Connected)
-                {
-                    NetworkStream stream = _client.GetStream();
-                    byte[] ping = Encoding.UTF8.GetBytes("PING::CHECK");
-                    stream.Write(ping, 0, ping.Length);
-
-                    // Expect a pong response
-                    byte[] buffer = new byte[1024];
-                    stream.ReadTimeout = 1000;
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-
-                    string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                    // ✅ Only return true if the response is exactly "PONG::ALIVE"
-                    if (response == "PONG::ALIVE")
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
 
 
 
@@ -134,7 +59,14 @@ namespace CMPG315_Test
                     _listener?.Stop();
                     _serverRunning = false;
                 }
-                _client?.Close();
+
+                if (_client != null && _client.Connected)
+                {
+                    NetworkStream stream = _client.GetStream();
+                    byte[] disconnectMessage = Encoding.UTF8.GetBytes($"DISCONNECTED::{_username}");
+                    stream.Write(disconnectMessage, 0, disconnectMessage.Length);
+                    _client.Close();
+                }
             }
             catch (Exception ex)
             {
@@ -162,18 +94,12 @@ namespace CMPG315_Test
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                        // ✅ Ignore PING and PONG messages from display
-                        if (message.Contains("PING::CHECK") || message.Contains("PONG::ALIVE"))
+                        if (message.StartsWith("DISCONNECTED::"))
                         {
-                            continue; // Skip adding it to the chat window
-                        }
-
-                        if (message == "CONFIRMED")
-                        {
+                            string username = message.Split("::")[1];
                             Invoke((MethodInvoker)delegate
                             {
-                                lblConnectionStatus.Text = "Online";
-                                lblConnectionStatus.ForeColor = Color.LimeGreen;
+                                txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
                             });
                             continue;
                         }
@@ -196,11 +122,7 @@ namespace CMPG315_Test
                     {
                         lblConnectionStatus.Text = "Offline";
                         lblConnectionStatus.ForeColor = Color.Red;
-
-                        if (!ex.Message.Contains("Overlapped I/O") && !ex.Message.Contains("WSACancelBlockingCall"))
-                        {
-                            MessageBox.Show("Error receiving message: " + ex.Message);
-                        }
+                        MessageBox.Show("Error receiving message: " + ex.Message);
                     });
                 }
             }
@@ -231,24 +153,25 @@ namespace CMPG315_Test
         {
             try
             {
-                _listener = new TcpListener(IPAddress.Any, _serverPort); // Accepts any IP
+                _listener = new TcpListener(IPAddress.Any, _serverPort);
                 _listener.Start();
                 _serverRunning = true;
 
+                // ✅ Start the client connection listener
                 _listenerThread = new Thread(ListenForClients)
                 {
                     IsBackground = true
                 };
                 _listenerThread.Start();
 
-                // ✅ Start the server status listener on a separate thread
+                // ✅ Start the status listener on a different port (port + 1)
                 Thread statusThread = new Thread(ListenForServerStatus)
                 {
                     IsBackground = true
                 };
                 statusThread.Start();
 
-                MessageBox.Show($"Server started on Port: {_serverPort}");
+                MessageBox.Show($"Server started on Port: {_serverPort} and Status Port: {_serverPort + 1}");
             }
             catch (Exception ex)
             {
@@ -256,16 +179,13 @@ namespace CMPG315_Test
             }
         }
 
-
-
-
         private void ListenForClients()
         {
             try
             {
                 while (_serverRunning)
                 {
-                    TcpClient client = _listener!.AcceptTcpClient();
+                    TcpClient client = _listener.AcceptTcpClient();
                     _connectedClients.Add(client);
 
                     NetworkStream stream = client.GetStream();
@@ -286,9 +206,11 @@ namespace CMPG315_Test
                             }
                         }));
 
+                        // Confirm connection to the client
                         byte[] confirmation = Encoding.UTF8.GetBytes("CONFIRMED");
                         stream.Write(confirmation, 0, confirmation.Length);
 
+                        // Start listening for client messages
                         Thread clientThread = new Thread(() => ListenForClientMessages(client))
                         {
                             IsBackground = true
@@ -320,6 +242,18 @@ namespace CMPG315_Test
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
+                        if (message.StartsWith("DISCONNECTED::"))
+                        {
+                            string username = message.Split("::")[1];
+                            Invoke((MethodInvoker)delegate
+                            {
+                                txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
+                                cbUsers.Items.Remove(username);
+                            });
+                            BroadcastMessage($"{username} has left the chat.");
+                            continue;
+                        }
+
                         if (message == "SERVER_DOWN")
                         {
                             Invoke((MethodInvoker)delegate
@@ -331,35 +265,20 @@ namespace CMPG315_Test
                             continue;
                         }
 
-                        // 🟢 Display the message in the server's own chat window
-                        string displayMessage = $"[Client {_clientUsernames[client]}]: {message}";
-
-                        // Update the server's chat window
+                        // Display the message
                         Invoke((MethodInvoker)delegate
                         {
-                            txtbChat.AppendText(displayMessage + Environment.NewLine);
+                            txtbChat.AppendText($"[Client {_clientUsernames[client]}]: {message}" + Environment.NewLine);
                         });
 
-                        // 🟢 Broadcast the message to all other clients
+                        // Broadcast to all clients
                         BroadcastMessage($"{_clientUsernames[client]}: {message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                if (IsHandleCreated)
-                {
-                    Invoke((MethodInvoker)delegate
-                    {
-                        lblConnectionStatus.Text = "Offline";
-                        lblConnectionStatus.ForeColor = Color.Red;
-
-                        if (!ex.Message.Contains("Overlapped I/O") && !ex.Message.Contains("WSACancelBlockingCall"))
-                        {
-                            MessageBox.Show("Error receiving message from client: " + ex.Message);
-                        }
-                    });
-                }
+                MessageBox.Show($"Error receiving message from client: {ex.Message}");
             }
         }
 
@@ -369,14 +288,17 @@ namespace CMPG315_Test
             {
                 TcpListener statusListener = new TcpListener(IPAddress.Any, _serverPort + 1);
                 statusListener.Start();
+
                 while (_serverRunning)
                 {
                     TcpClient statusClient = statusListener.AcceptTcpClient();
                     NetworkStream stream = statusClient.GetStream();
-                    byte[] response = Encoding.UTF8.GetBytes("1"); // Send "1" as server is running
+                    byte[] response = Encoding.UTF8.GetBytes("1"); // Server is running
                     stream.Write(response, 0, response.Length);
                     statusClient.Close();
                 }
+
+                statusListener.Stop();
             }
             catch (Exception ex)
             {
@@ -397,11 +319,6 @@ namespace CMPG315_Test
                     {
                         NetworkStream stream = client.GetStream();
                         stream.Write(buffer, 0, buffer.Length);
-                    }
-                    else
-                    {
-                        _connectedClients.Remove(client);
-                        _clientUsernames.Remove(client);
                     }
                 }
                 catch (Exception ex)
