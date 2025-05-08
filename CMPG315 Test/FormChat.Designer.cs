@@ -111,6 +111,7 @@
             Controls.Add(label2);
             Controls.Add(cbUsers);
             Controls.Add(label1);
+            FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             Name = "FormChat";
             StartPosition = FormStartPosition.CenterScreen;
