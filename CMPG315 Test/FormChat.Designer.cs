@@ -78,13 +78,13 @@
             // 
             txtbChat.Location = new Point(12, 38);
             txtbChat.Name = "txtbChat";
-            txtbChat.Size = new Size(776, 364);
+            txtbChat.Size = new Size(776, 538);
             txtbChat.TabIndex = 4;
             txtbChat.Text = "";
             // 
             // txtbText
             // 
-            txtbText.Location = new Point(12, 408);
+            txtbText.Location = new Point(12, 582);
             txtbText.Name = "txtbText";
             txtbText.Size = new Size(656, 30);
             txtbText.TabIndex = 5;
@@ -92,7 +92,7 @@
             // 
             // btnSend
             // 
-            btnSend.Location = new Point(674, 408);
+            btnSend.Location = new Point(674, 582);
             btnSend.Name = "btnSend";
             btnSend.Size = new Size(114, 30);
             btnSend.TabIndex = 6;
@@ -102,9 +102,8 @@
             // 
             // FormChat
             // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
-            AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            AutoScaleMode = AutoScaleMode.None;
+            ClientSize = new Size(800, 624);
             Controls.Add(btnSend);
             Controls.Add(txtbText);
             Controls.Add(txtbChat);
