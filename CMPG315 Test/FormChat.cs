@@ -220,6 +220,28 @@ namespace CMPG315_Test
             }
         }
 
+        private void ListenForServerStatus()
+        {
+            try
+            {
+                TcpListener statusListener = new TcpListener(IPAddress.Any, _serverPort + 1); // Use a different port
+                statusListener.Start();
+                while (_serverRunning)
+                {
+                    TcpClient statusClient = statusListener.AcceptTcpClient();
+                    NetworkStream stream = statusClient.GetStream();
+                    byte[] response = Encoding.UTF8.GetBytes("1"); // Send "1" as server is running
+                    stream.Write(response, 0, response.Length);
+                    statusClient.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error with server status check: " + ex.Message);
+            }
+        }
+
+
         private void BroadcastMessage(string message)
         {
             byte[] buffer = Encoding.UTF8.GetBytes(message);

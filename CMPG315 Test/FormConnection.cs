@@ -88,7 +88,7 @@ namespace CMPG315_Test
                     }
                     else
                     {
-                        MessageBox.Show($"Cannot connect to {ip}:{port}. No host found.");
+                        MessageBox.Show($"Cannot connect to {ip}:{port}. The server is not running.");
                     }
                 }
                 catch (SocketException)
@@ -111,14 +111,13 @@ namespace CMPG315_Test
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    var result = tcpClient.BeginConnect(ip, port, null, null);
-                    var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
-                    if (!success)
-                    {
-                        return false;
-                    }
-                    tcpClient.EndConnect(result);
-                    return true;
+                    tcpClient.Connect(ip, port + 1); // Connect to the status port
+                    NetworkStream stream = tcpClient.GetStream();
+                    byte[] buffer = new byte[1];
+                    stream.Read(buffer, 0, buffer.Length);
+
+                    string response = Encoding.UTF8.GetString(buffer);
+                    return response == "1"; // Only return true if the server responded with "1"
                 }
             }
             catch
