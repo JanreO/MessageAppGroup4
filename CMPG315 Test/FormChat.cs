@@ -32,11 +32,9 @@ namespace CMPG315_Test
             _username = username;
             _isServer = false;
 
-            // Set status to Offline initially
             lblConnectionStatus.Text = "Offline";
             lblConnectionStatus.ForeColor = Color.Red;
 
-            // Start the listener thread for server messages
             _listenerThread = new Thread(ListenForServerMessages)
             {
                 IsBackground = true
@@ -46,9 +44,6 @@ namespace CMPG315_Test
             txtbChat.AppendText("You joined the group chat." + Environment.NewLine);
 
             this.FormClosing += FormChat_FormClosing;
-
-            // Start monitoring connection status
-            StartConnectionMonitor();
         }
 
         private void StartConnectionMonitor()
@@ -133,14 +128,13 @@ namespace CMPG315_Test
         {
             try
             {
-                if (_client != null && _client.Connected)
+                if (_isServer && _serverRunning)
                 {
-                    _client.Close();
+                    ShutdownServer();
+                    _listener?.Stop();
+                    _serverRunning = false;
                 }
-                if (_listener != null && _serverRunning)
-                {
-                    _listener.Stop();
-                }
+                _client?.Close();
             }
             catch (Exception ex)
             {
@@ -148,7 +142,7 @@ namespace CMPG315_Test
             }
             finally
             {
-                Application.Exit(); // Close the application entirely
+                Application.Exit();
             }
         }
 
@@ -226,7 +220,6 @@ namespace CMPG315_Test
             if (_isServer)
             {
                 StartServer();
-                // Set status to Hosting (Light Blue)
                 lblConnectionStatus.Text = "Hosting";
                 lblConnectionStatus.ForeColor = Color.Blue;
             }
@@ -238,7 +231,7 @@ namespace CMPG315_Test
         {
             try
             {
-                _listener = new TcpListener(IPAddress.Any, _serverPort); // Accepts any IP
+                _listener = new TcpListener(IPAddress.Any, _serverPort);
                 _listener.Start();
                 _serverRunning = true;
 
@@ -247,13 +240,6 @@ namespace CMPG315_Test
                     IsBackground = true
                 };
                 _listenerThread.Start();
-
-                // ✅ Start the server status listener on a separate thread
-                Thread statusThread = new Thread(ListenForServerStatus)
-                {
-                    IsBackground = true
-                };
-                statusThread.Start();
 
                 MessageBox.Show($"Server started on Port: {_serverPort}");
             }
@@ -280,17 +266,6 @@ namespace CMPG315_Test
                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
                     string username = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                    // ✅ If it's a ping check, respond and skip processing
-                    if (username.Contains("PING::CHECK"))
-                    {
-                        byte[] pongResponse = Encoding.UTF8.GetBytes("PONG::ALIVE");
-                        stream.Write(pongResponse, 0, pongResponse.Length);
-
-                        // Close the client after responding
-                        client.Close();
-                        continue;
-                    }
-
                     if (!_clientUsernames.ContainsValue(username))
                     {
                         _clientUsernames[client] = username;
@@ -304,11 +279,9 @@ namespace CMPG315_Test
                             }
                         }));
 
-                        // ✅ Immediately send confirmation to the client
                         byte[] confirmation = Encoding.UTF8.GetBytes("CONFIRMED");
                         stream.Write(confirmation, 0, confirmation.Length);
 
-                        // Start listening for client messages
                         Thread clientThread = new Thread(() => ListenForClientMessages(client))
                         {
                             IsBackground = true
@@ -340,6 +313,17 @@ namespace CMPG315_Test
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
+                        if (message == "SERVER_DOWN")
+                        {
+                            Invoke((MethodInvoker)delegate
+                            {
+                                lblConnectionStatus.Text = "Offline";
+                                lblConnectionStatus.ForeColor = Color.Red;
+                                txtbChat.AppendText("Server has disconnected." + Environment.NewLine);
+                            });
+                            continue;
+                        }
+
                         Invoke((MethodInvoker)delegate
                         {
                             txtbChat.AppendText(message + Environment.NewLine);
@@ -351,7 +335,19 @@ namespace CMPG315_Test
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error receiving message from client: " + ex.Message);
+                if (IsHandleCreated)
+                {
+                    Invoke((MethodInvoker)delegate
+                    {
+                        lblConnectionStatus.Text = "Offline";
+                        lblConnectionStatus.ForeColor = Color.Red;
+
+                        if (!ex.Message.Contains("Overlapped I/O") && !ex.Message.Contains("WSACancelBlockingCall"))
+                        {
+                            MessageBox.Show("Error receiving message: " + ex.Message);
+                        }
+                    });
+                }
             }
         }
 
@@ -427,6 +423,27 @@ namespace CMPG315_Test
                 catch (Exception ex)
                 {
                     MessageBox.Show("Failed to send user list: " + ex.Message);
+                }
+            }
+        }
+
+        private void ShutdownServer()
+        {
+            byte[] message = Encoding.UTF8.GetBytes("SERVER_DOWN");
+
+            foreach (var client in _connectedClients.ToList())
+            {
+                try
+                {
+                    if (client.Connected)
+                    {
+                        NetworkStream stream = client.GetStream();
+                        stream.Write(message, 0, message.Length);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Failed to send shutdown message to client: " + ex.Message);
                 }
             }
         }
