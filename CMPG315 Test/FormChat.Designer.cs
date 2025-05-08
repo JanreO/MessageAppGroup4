@@ -31,7 +31,7 @@
             label1 = new Label();
             cbUsers = new ComboBox();
             label2 = new Label();
-            lblIP = new Label();
+            lblConnectionStatus = new Label();
             txtbChat = new RichTextBox();
             txtbText = new RichTextBox();
             btnSend = new Button();
@@ -57,20 +57,22 @@
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new Point(585, 9);
+            label2.Location = new Point(646, 9);
             label2.Name = "label2";
-            label2.Size = new Size(83, 15);
+            label2.Size = new Size(72, 15);
             label2.TabIndex = 2;
-            label2.Text = "Connected To:";
+            label2.Text = "Connection:";
             // 
-            // lblIP
+            // lblConnectionStatus
             // 
-            lblIP.AutoSize = true;
-            lblIP.Location = new Point(674, 9);
-            lblIP.Name = "lblIP";
-            lblIP.Size = new Size(36, 15);
-            lblIP.TabIndex = 3;
-            lblIP.Text = "None";
+            lblConnectionStatus.AutoSize = true;
+            lblConnectionStatus.BackColor = Color.White;
+            lblConnectionStatus.ForeColor = Color.Red;
+            lblConnectionStatus.Location = new Point(724, 9);
+            lblConnectionStatus.Name = "lblConnectionStatus";
+            lblConnectionStatus.Size = new Size(43, 15);
+            lblConnectionStatus.TabIndex = 3;
+            lblConnectionStatus.Text = "Offline";
             // 
             // txtbChat
             // 
@@ -106,7 +108,7 @@
             Controls.Add(btnSend);
             Controls.Add(txtbText);
             Controls.Add(txtbChat);
-            Controls.Add(lblIP);
+            Controls.Add(lblConnectionStatus);
             Controls.Add(label2);
             Controls.Add(cbUsers);
             Controls.Add(label1);
@@ -123,7 +125,7 @@
         private Label label1;
         private ComboBox cbUsers;
         private Label label2;
-        private Label lblIP;
+        private Label lblConnectionStatus;
         private RichTextBox txtbChat;
         private RichTextBox txtbText;
         private Button btnSend;

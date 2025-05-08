@@ -32,6 +32,11 @@ namespace CMPG315_Test
             _username = username;
             _isServer = false;
 
+            // Set initial status to Offline (Red color)
+            lblConnectionStatus.Text = "Offline";
+            lblConnectionStatus.ForeColor = Color.Red;
+
+            // Start the listener thread
             _listenerThread = new Thread(ListenForServerMessages)
             {
                 IsBackground = true
@@ -40,8 +45,85 @@ namespace CMPG315_Test
 
             txtbChat.AppendText("You joined the group chat." + Environment.NewLine);
 
+            // Register the FormClosing event to handle disconnect
             this.FormClosing += FormChat_FormClosing;
+
+            // Start monitoring connection status
+            StartConnectionMonitor();
         }
+
+        private void StartConnectionMonitor()
+        {
+            Thread connectionMonitor = new Thread(() =>
+            {
+                while (true)
+                {
+                    Thread.Sleep(3000); // Check every 3 seconds
+
+                    if (_client != null && _client.Connected)
+                    {
+                        if (CheckServerAvailability())
+                        {
+                            // Server is still reachable
+                            Invoke((MethodInvoker)delegate
+                            {
+                                lblConnectionStatus.Text = "Online";
+                                lblConnectionStatus.ForeColor = Color.LimeGreen;
+                            });
+                        }
+                        else
+                        {
+                            // Server is not reachable
+                            Invoke((MethodInvoker)delegate
+                            {
+                                lblConnectionStatus.Text = "Offline";
+                                lblConnectionStatus.ForeColor = Color.Red;
+                            });
+                        }
+                    }
+                    else
+                    {
+                        // No connection
+                        Invoke((MethodInvoker)delegate
+                        {
+                            lblConnectionStatus.Text = "Offline";
+                            lblConnectionStatus.ForeColor = Color.Red;
+                        });
+                    }
+                }
+            });
+
+            connectionMonitor.IsBackground = true;
+            connectionMonitor.Start();
+        }
+
+        private bool CheckServerAvailability()
+        {
+            try
+            {
+                if (_client != null && _client.Connected)
+                {
+                    // Send a small ping packet
+                    NetworkStream stream = _client.GetStream();
+                    byte[] ping = Encoding.UTF8.GetBytes("PING");
+                    stream.Write(ping, 0, ping.Length);
+
+                    // Expect a pong response
+                    byte[] buffer = new byte[1024];
+                    stream.ReadTimeout = 1000;
+                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
+
+                    string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    return response == "PONG";
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
 
 
         private void FormChat_FormClosing(object? sender, FormClosingEventArgs e)
@@ -72,24 +154,46 @@ namespace CMPG315_Test
         {
             try
             {
-                NetworkStream stream = _client.GetStream();
-                byte[] buffer = new byte[1024];
-
-                while (true)
+                try
                 {
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                    NetworkStream stream = _client.GetStream();
+                    byte[] buffer = new byte[1024];
 
-                    if (bytesRead > 0)
+                    while (true)
                     {
-                        string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        int bytesRead = stream.Read(buffer, 0, buffer.Length);
 
-                        if (IsHandleCreated)
+                        if (bytesRead > 0)
                         {
-                            Invoke((MethodInvoker)delegate
+                            string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                            if (message == "PING")
                             {
-                                txtbChat.AppendText(message + Environment.NewLine);
-                            });
+                                byte[] pong = Encoding.UTF8.GetBytes("PONG");
+                                stream.Write(pong, 0, pong.Length);
+                                continue;
+                            }
+
+                            if (IsHandleCreated)
+                            {
+                                Invoke((MethodInvoker)delegate
+                                {
+                                    txtbChat.AppendText(message + Environment.NewLine);
+                                });
+                            }
                         }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (IsHandleCreated)
+                    {
+                        Invoke((MethodInvoker)delegate
+                        {
+                            lblConnectionStatus.Text = "Offline";
+                            lblConnectionStatus.ForeColor = Color.Red;
+                            MessageBox.Show("Error receiving message: " + ex.Message);
+                        });
                     }
                 }
             }
