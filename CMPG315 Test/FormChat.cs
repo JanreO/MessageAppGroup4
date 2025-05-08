@@ -104,7 +104,7 @@ namespace CMPG315_Test
                 {
                     // Send a small ping packet
                     NetworkStream stream = _client.GetStream();
-                    byte[] ping = Encoding.UTF8.GetBytes("PING");
+                    byte[] ping = Encoding.UTF8.GetBytes("PING::CHECK");
                     stream.Write(ping, 0, ping.Length);
 
                     // Expect a pong response
@@ -113,7 +113,9 @@ namespace CMPG315_Test
                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
 
                     string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    return response == "PONG";
+
+                    // ✅ Only return true if the response is exactly "PONG::ALIVE"
+                    return response == "PONG::ALIVE";
                 }
                 return false;
             }
@@ -163,6 +165,12 @@ namespace CMPG315_Test
                     if (bytesRead > 0)
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                        // 🟢 Ignore PING and PONG messages from display
+                        if (message.StartsWith("PING::") || message.StartsWith("PONG::"))
+                        {
+                            continue;
+                        }
 
                         if (message == "CONFIRMED")
                         {
@@ -265,6 +273,15 @@ namespace CMPG315_Test
                     byte[] buffer = new byte[1024];
                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
                     string username = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                    // ✅ If it's a ping check, respond and skip processing
+                    if (username == "PING::CHECK")
+                    {
+                        byte[] pongResponse = Encoding.UTF8.GetBytes("PONG::ALIVE");
+                        stream.Write(pongResponse, 0, pongResponse.Length);
+                        client.Close();
+                        continue;
+                    }
 
                     if (!_clientUsernames.ContainsValue(username))
                     {
