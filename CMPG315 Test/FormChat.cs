@@ -231,7 +231,7 @@ namespace CMPG315_Test
         {
             try
             {
-                _listener = new TcpListener(IPAddress.Any, _serverPort);
+                _listener = new TcpListener(IPAddress.Any, _serverPort); // Accepts any IP
                 _listener.Start();
                 _serverRunning = true;
 
@@ -240,6 +240,13 @@ namespace CMPG315_Test
                     IsBackground = true
                 };
                 _listenerThread.Start();
+
+                // ✅ Start the server status listener on a separate thread
+                Thread statusThread = new Thread(ListenForServerStatus)
+                {
+                    IsBackground = true
+                };
+                statusThread.Start();
 
                 MessageBox.Show($"Server started on Port: {_serverPort}");
             }
