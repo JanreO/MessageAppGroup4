@@ -331,12 +331,13 @@ namespace CMPG315_Test
                             continue;
                         }
 
+                        // ✅ Display the message in the server's own chat window
                         Invoke((MethodInvoker)delegate
                         {
-                            txtbChat.AppendText(message + Environment.NewLine);
+                            txtbChat.AppendText($"[Client]: {message}" + Environment.NewLine);
                         });
 
-                        BroadcastMessage(message);
+                        BroadcastMessage($"{_clientUsernames[client]}: {message}");
                     }
                 }
             }
@@ -351,7 +352,7 @@ namespace CMPG315_Test
 
                         if (!ex.Message.Contains("Overlapped I/O") && !ex.Message.Contains("WSACancelBlockingCall"))
                         {
-                            MessageBox.Show("Error receiving message: " + ex.Message);
+                            MessageBox.Show("Error receiving message from client: " + ex.Message);
                         }
                     });
                 }
