@@ -120,30 +120,13 @@ namespace CMPG315_Test
                             continue;
                         }
 
-                        // ✅ Handle User List Update
-                        if (message.StartsWith("USER_LIST:"))
+                        if (IsHandleCreated)
                         {
-                            string[] users = message.Substring(10).Split(',');
                             Invoke((MethodInvoker)delegate
                             {
-                                cbUsers.Items.Clear();
-                                cbUsers.Items.Add("Company Group");
-                                foreach (var user in users)
-                                {
-                                    if (!string.IsNullOrWhiteSpace(user))
-                                        cbUsers.Items.Add(user);
-                                }
-                                cbUsers.SelectedIndex = 0;
+                                txtbChat.AppendText(message + Environment.NewLine);
                             });
-                            continue;
                         }
-
-                        // ✅ Display the message properly
-                        Invoke((MethodInvoker)delegate
-                        {
-                            txtbChat.AppendText(message + Environment.NewLine);
-                            txtbChat.AppendText("--------------------------------------------------" + Environment.NewLine); // Add a separator
-                        });
                     }
                 }
             }
@@ -240,45 +223,34 @@ namespace CMPG315_Test
                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
                     string username = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                    // ✅ Check if the username already exists and remove the old reference
-                    if (_clientUsernames.ContainsValue(username))
-                    {
-                        // Find the old client
-                        var existingClient = _clientUsernames.FirstOrDefault(x => x.Value == username).Key;
-
-                        // Remove the old client
-                        if (existingClient != null)
-                        {
-                            _connectedClients.Remove(existingClient);
-                            _clientUsernames.Remove(existingClient);
-                        }
-                    }
-
                     // ✅ Add the new connection
-                    _clientUsernames[client] = username;
-
-                    Invoke((MethodInvoker)(() =>
+                    if (!_clientUsernames.ContainsKey(client))
                     {
-                        if (!cbUsers.Items.Contains(username))
+                        _clientUsernames[client] = username;
+
+                        Invoke((MethodInvoker)(() =>
                         {
-                            cbUsers.Items.Add(username);
-                            txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
-                        }
-                    }));
+                            if (!cbUsers.Items.Contains(username))
+                            {
+                                cbUsers.Items.Add(username);
+                                txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
+                            }
+                        }));
 
-                    // ✅ Confirm connection to the client
-                    byte[] confirmation = Encoding.UTF8.GetBytes("CONFIRMED");
-                    stream.Write(confirmation, 0, confirmation.Length);
+                        // ✅ Confirm connection to the client
+                        byte[] confirmation = Encoding.UTF8.GetBytes("CONFIRMED");
+                        stream.Write(confirmation, 0, confirmation.Length);
 
-                    // ✅ Start listening for client messages
-                    Thread clientThread = new Thread(() => ListenForClientMessages(client))
-                    {
-                        IsBackground = true
-                    };
-                    clientThread.Start();
+                        // ✅ Start listening for client messages
+                        Thread clientThread = new Thread(() => ListenForClientMessages(client))
+                        {
+                            IsBackground = true
+                        };
+                        clientThread.Start();
 
-                    // ✅ After adding the user, broadcast the list
-                    BroadcastUserList();
+                        // ✅ Broadcast the user list to all clients
+                        BroadcastUserList();
+                    }
                 }
             }
             catch (Exception ex)
@@ -296,15 +268,15 @@ namespace CMPG315_Test
                 {
                     while (true)
                     {
-                        string message = reader.ReadLine();
+                        string message = reader.ReadLine(); // Use ReadLine for clean separation
 
                         if (!string.IsNullOrEmpty(message))
                         {
+                            // ✅ Disconnect logic
                             if (message.StartsWith("DISCONNECTED::"))
                             {
                                 string username = message.Split("::")[1];
 
-                                // ✅ Remove from the dictionary and list
                                 if (_clientUsernames.ContainsKey(client))
                                 {
                                     _clientUsernames.Remove(client);
@@ -321,14 +293,13 @@ namespace CMPG315_Test
                                 continue;
                             }
 
-                            // ✅ Display the message
+                            // ✅ Display message on the server side
                             string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
                             string displayMessage = $"[{clientUsername}]: {message}";
 
                             Invoke((MethodInvoker)delegate
                             {
                                 txtbChat.AppendText(displayMessage + Environment.NewLine);
-                                txtbChat.AppendText("--------------------------------------------------" + Environment.NewLine);
                             });
 
                             // ✅ Broadcast to all other clients
@@ -356,7 +327,7 @@ namespace CMPG315_Test
                             NetworkStream stream = client.GetStream();
                             using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
                             {
-                                writer.WriteLine(message);
+                                writer.WriteLine(message); // Write and flush
                                 writer.Flush();
                             }
                         }
@@ -395,41 +366,9 @@ namespace CMPG315_Test
         }
 
 
-        private void BroadcastMessage(string message)
-        {
-            lock (_connectedClients)
-            {
-                foreach (var client in _connectedClients.ToList())
-                {
-                    try
-                    {
-                        if (client.Connected)
-                        {
-                            NetworkStream stream = client.GetStream();
-                            using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
-                            {
-                                writer.WriteLine(message);
-                                writer.Flush();
-                            }
-                        }
-                        else
-                        {
-                            _connectedClients.Remove(client);
-                            _clientUsernames.Remove(client);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Failed to send message to client: " + ex.Message);
-                    }
-                }
-            }
-        }
-
 
         private void BroadcastUserList()
         {
-            // Build the user list
             string userList = "USER_LIST:" + string.Join(",", _clientUsernames.Values);
 
             foreach (var client in _connectedClients.ToList())
@@ -447,7 +386,6 @@ namespace CMPG315_Test
                     }
                     else
                     {
-                        // ✅ If the client is disconnected, remove them
                         _connectedClients.Remove(client);
                         _clientUsernames.Remove(client);
                     }
@@ -490,10 +428,13 @@ namespace CMPG315_Test
                 try
                 {
                     NetworkStream stream = _client.GetStream();
-                    byte[] buffer = Encoding.UTF8.GetBytes(message + Environment.NewLine); // Add newline for proper read
-                    stream.Write(buffer, 0, buffer.Length);
-                    stream.Flush();
+                    using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                    {
+                        writer.WriteLine(message); // Use WriteLine to auto-append newline
+                        writer.Flush();
+                    }
 
+                    // Display on sender's chat window
                     txtbChat.AppendText($"Me: {txtbText.Text}" + Environment.NewLine);
                     txtbText.Clear();
                 }
