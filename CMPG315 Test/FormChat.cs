@@ -262,52 +262,43 @@ namespace CMPG315_Test
             try
             {
                 NetworkStream stream = client.GetStream();
-                byte[] buffer = new byte[1024];
-
-                while (true)
+                using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
                 {
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-
-                    if (bytesRead > 0)
+                    while (true)
                     {
-                        string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        string message = reader.ReadLine();
 
-                        // 🛑 If the client disconnects
-                        if (message.StartsWith("DISCONNECTED::"))
+                        if (!string.IsNullOrEmpty(message))
                         {
-                            string username = message.Split("::")[1];
-                            Invoke((MethodInvoker)delegate
+                            // 🛑 If the client disconnects
+                            if (message.StartsWith("DISCONNECTED::"))
                             {
+                                string username = message.Split("::")[1];
                                 txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
                                 cbUsers.Items.Remove(username);
-                            });
-                            BroadcastMessage($"{username} has left the chat.");
-                            continue;
-                        }
+                                BroadcastMessage($"{username} has left the chat.");
+                                continue;
+                            }
 
-                        // 🛑 If the server shuts down
-                        if (message == "SERVER_DOWN")
-                        {
-                            Invoke((MethodInvoker)delegate
+                            // 🛑 If the server shuts down
+                            if (message == "SERVER_DOWN")
                             {
                                 lblConnectionStatus.Text = "Offline";
                                 lblConnectionStatus.ForeColor = Color.Red;
                                 txtbChat.AppendText("Server has disconnected." + Environment.NewLine);
-                            });
-                            continue;
-                        }
+                                continue;
+                            }
 
-                        // ✅ Display on the server chat window
-                        string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
-                        string displayMessage = $"[{clientUsername}]: {message}";
+                            // ✅ Display on the server chat window
+                            string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
+                            string displayMessage = $"[{clientUsername}]: {message}";
 
-                        Invoke((MethodInvoker)delegate
-                        {
+                            // ✅ Display directly (no Invoke required)
                             txtbChat.AppendText(displayMessage + Environment.NewLine);
-                        });
 
-                        // ✅ Broadcast to all other clients
-                        BroadcastToAllClients(displayMessage, client);
+                            // ✅ Broadcast to all other clients
+                            BroadcastToAllClients(displayMessage, client);
+                        }
                     }
                 }
             }
@@ -319,8 +310,6 @@ namespace CMPG315_Test
 
         private void BroadcastToAllClients(string message, TcpClient senderClient)
         {
-            byte[] buffer = Encoding.UTF8.GetBytes(message);
-
             lock (_connectedClients)
             {
                 foreach (var client in _connectedClients.ToList())
@@ -330,7 +319,11 @@ namespace CMPG315_Test
                         if (client.Connected && client != senderClient)
                         {
                             NetworkStream stream = client.GetStream();
-                            stream.Write(buffer, 0, buffer.Length);
+                            using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                            {
+                                writer.WriteLine(message);
+                                writer.Flush();
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -369,21 +362,31 @@ namespace CMPG315_Test
 
         private void BroadcastMessage(string message)
         {
-            byte[] buffer = Encoding.UTF8.GetBytes(message);
-
-            foreach (var client in _connectedClients.ToList())
+            lock (_connectedClients)
             {
-                try
+                foreach (var client in _connectedClients.ToList())
                 {
-                    if (client.Connected)
+                    try
                     {
-                        NetworkStream stream = client.GetStream();
-                        stream.Write(buffer, 0, buffer.Length);
+                        if (client.Connected)
+                        {
+                            NetworkStream stream = client.GetStream();
+                            using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                            {
+                                writer.WriteLine(message);
+                                writer.Flush();
+                            }
+                        }
+                        else
+                        {
+                            _connectedClients.Remove(client);
+                            _clientUsernames.Remove(client);
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Failed to send message to client: " + ex.Message);
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Failed to send message to client: " + ex.Message);
+                    }
                 }
             }
         }
