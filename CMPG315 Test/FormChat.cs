@@ -272,6 +272,7 @@ namespace CMPG315_Test
                     {
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
+                        // 🛑 If the client disconnects
                         if (message.StartsWith("DISCONNECTED::"))
                         {
                             string username = message.Split("::")[1];
@@ -284,6 +285,7 @@ namespace CMPG315_Test
                             continue;
                         }
 
+                        // 🛑 If the server shuts down
                         if (message == "SERVER_DOWN")
                         {
                             Invoke((MethodInvoker)delegate
@@ -295,14 +297,17 @@ namespace CMPG315_Test
                             continue;
                         }
 
-                        // Display the message
+                        // ✅ Display on the server chat window
+                        string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
+                        string displayMessage = $"[{clientUsername}]: {message}";
+
                         Invoke((MethodInvoker)delegate
                         {
-                            txtbChat.AppendText($"[Client {_clientUsernames[client]}]: {message}" + Environment.NewLine);
+                            txtbChat.AppendText(displayMessage + Environment.NewLine);
                         });
 
-                        // Broadcast to all clients
-                        BroadcastMessage($"{_clientUsernames[client]}: {message}");
+                        // ✅ Broadcast to all other clients
+                        BroadcastToAllClients(displayMessage, client);
                     }
                 }
             }
@@ -311,6 +316,31 @@ namespace CMPG315_Test
                 MessageBox.Show($"Error receiving message from client: {ex.Message}");
             }
         }
+
+        private void BroadcastToAllClients(string message, TcpClient senderClient)
+        {
+            byte[] buffer = Encoding.UTF8.GetBytes(message);
+
+            lock (_connectedClients)
+            {
+                foreach (var client in _connectedClients.ToList())
+                {
+                    try
+                    {
+                        if (client.Connected && client != senderClient)
+                        {
+                            NetworkStream stream = client.GetStream();
+                            stream.Write(buffer, 0, buffer.Length);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to send message to client: {ex.Message}");
+                    }
+                }
+            }
+        }
+
 
         private void ListenForServerStatus()
         {
