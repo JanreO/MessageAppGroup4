@@ -270,33 +270,43 @@ namespace CMPG315_Test
 
                         if (!string.IsNullOrEmpty(message))
                         {
-                            // 🛑 If the client disconnects
+                            Console.WriteLine($"Message received from client: {message}"); // Log to check if it's coming in
+
                             if (message.StartsWith("DISCONNECTED::"))
                             {
                                 string username = message.Split("::")[1];
-                                txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
-                                cbUsers.Items.Remove(username);
+                                Invoke((MethodInvoker)delegate
+                                {
+                                    txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
+                                    cbUsers.Items.Remove(username);
+                                });
                                 BroadcastMessage($"{username} has left the chat.");
                                 continue;
                             }
 
-                            // 🛑 If the server shuts down
                             if (message == "SERVER_DOWN")
                             {
-                                lblConnectionStatus.Text = "Offline";
-                                lblConnectionStatus.ForeColor = Color.Red;
-                                txtbChat.AppendText("Server has disconnected." + Environment.NewLine);
+                                Invoke((MethodInvoker)delegate
+                                {
+                                    lblConnectionStatus.Text = "Offline";
+                                    lblConnectionStatus.ForeColor = Color.Red;
+                                    txtbChat.AppendText("Server has disconnected." + Environment.NewLine);
+                                });
                                 continue;
                             }
 
-                            // ✅ Display on the server chat window
                             string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
                             string displayMessage = $"[{clientUsername}]: {message}";
 
-                            // ✅ Display directly (no Invoke required)
-                            txtbChat.AppendText(displayMessage + Environment.NewLine);
+                            Console.WriteLine($"Displaying on server: {displayMessage}"); // Log to check display
 
-                            // ✅ Broadcast to all other clients
+                            // Display directly
+                            Invoke((MethodInvoker)delegate
+                            {
+                                txtbChat.AppendText(displayMessage + Environment.NewLine);
+                            });
+
+                            // Broadcast to all other clients
                             BroadcastToAllClients(displayMessage, client);
                         }
                     }
@@ -443,12 +453,29 @@ namespace CMPG315_Test
         private void btnSend_Click(object sender, EventArgs e)
         {
             string message = $"{_username}: {txtbText.Text}";
-            byte[] buffer = Encoding.UTF8.GetBytes(message);
 
-            txtbChat.AppendText($"Me: {txtbText.Text}" + Environment.NewLine);
-            txtbText.Clear();
+            // Check if the client is connected
+            if (_client != null && _client.Connected)
+            {
+                try
+                {
+                    NetworkStream stream = _client.GetStream();
+                    byte[] buffer = Encoding.UTF8.GetBytes(message + Environment.NewLine); // Add newline for proper read
+                    stream.Write(buffer, 0, buffer.Length);
+                    stream.Flush();
 
-            BroadcastMessage(message);
+                    txtbChat.AppendText($"Me: {txtbText.Text}" + Environment.NewLine);
+                    txtbText.Clear();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error sending message: " + ex.Message);
+                }
+            }
+            else
+            {
+                MessageBox.Show("You are not connected to the server.");
+            }
         }
     }
 }
