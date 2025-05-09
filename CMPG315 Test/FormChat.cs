@@ -120,13 +120,30 @@ namespace CMPG315_Test
                             continue;
                         }
 
-                        if (IsHandleCreated)
+                        // ✅ Handle User List Update
+                        if (message.StartsWith("USER_LIST:"))
                         {
+                            string[] users = message.Substring(10).Split(',');
                             Invoke((MethodInvoker)delegate
                             {
-                                txtbChat.AppendText(message + Environment.NewLine);
+                                cbUsers.Items.Clear();
+                                cbUsers.Items.Add("Company Group");
+                                foreach (var user in users)
+                                {
+                                    if (!string.IsNullOrWhiteSpace(user))
+                                        cbUsers.Items.Add(user);
+                                }
+                                cbUsers.SelectedIndex = 0;
                             });
+                            continue;
                         }
+
+                        // ✅ Display the message properly
+                        Invoke((MethodInvoker)delegate
+                        {
+                            txtbChat.AppendText(message + Environment.NewLine);
+                            txtbChat.AppendText("--------------------------------------------------" + Environment.NewLine); // Add a separator
+                        });
                     }
                 }
             }
@@ -296,7 +313,9 @@ namespace CMPG315_Test
                             }
 
                             string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
-                            string displayMessage = $"[{clientUsername}]: {message}";
+
+                            // ✅ Display correctly without double username
+                            string displayMessage = $"[{clientUsername}]: {message.Substring(clientUsername.Length + 2)}";
 
                             Console.WriteLine($"Displaying on server: {displayMessage}"); // Log to check display
 
@@ -304,6 +323,7 @@ namespace CMPG315_Test
                             Invoke((MethodInvoker)delegate
                             {
                                 txtbChat.AppendText(displayMessage + Environment.NewLine);
+                                txtbChat.AppendText("--------------------------------------------------" + Environment.NewLine); // Separator
                             });
 
                             // Broadcast to all other clients
