@@ -420,7 +420,7 @@ namespace CMPG315_Test
 
         private void btnSend_Click(object sender, EventArgs e)
         {
-            string message = $"{_username}: {txtbText.Text}";
+            string message = txtbText.Text; // Only send the message, not the username
 
             // Check if the client is connected
             if (_client != null && _client.Connected)
