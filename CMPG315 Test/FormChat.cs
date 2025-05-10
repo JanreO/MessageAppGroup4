@@ -142,7 +142,6 @@ namespace CMPG315_Test
                             {
                                 string[] users = message.Replace("USER_LIST:", "").Split(',');
 
-                                // ✅ Clear the list and re-add "Company Group"
                                 _syncContext.Post(_ =>
                                 {
                                     lstUsers.Items.Clear();
@@ -152,7 +151,19 @@ namespace CMPG315_Test
                                     {
                                         if (!string.IsNullOrWhiteSpace(user) && user != _username)
                                         {
-                                            lstUsers.Items.Add(user);
+                                            if (!lstUsers.Items.Contains(user))
+                                            {
+                                                lstUsers.Items.Add(user);
+                                            }
+                                        }
+                                    }
+
+                                    // ✅ Remove empty indexes
+                                    for (int i = lstUsers.Items.Count - 1; i >= 0; i--)
+                                    {
+                                        if (string.IsNullOrWhiteSpace(lstUsers.Items[i].ToString()))
+                                        {
+                                            lstUsers.Items.RemoveAt(i);
                                         }
                                     }
                                 }, null);
@@ -168,6 +179,10 @@ namespace CMPG315_Test
                     }
                 }
             }
+            catch (IOException ioEx)
+            {
+                MessageBox.Show($"Connection lost: {ioEx.Message}");
+            }
             catch (Exception ex)
             {
                 _syncContext.Post(_ =>
@@ -178,6 +193,7 @@ namespace CMPG315_Test
                 }, null);
             }
         }
+
 
 
         // Host constructor
@@ -300,13 +316,27 @@ namespace CMPG315_Test
             try
             {
                 var userList = _clientUsernames.Values.ToList();
-                string userListMessage = "USER_LIST:" + string.Join(",", userList);
 
-                NetworkStream stream = client.GetStream();
-                using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                // ✅ If the list only contains the new user, don't send the list
+                if (userList.Count == 1 && userList[0] == _clientUsernames[client])
                 {
-                    writer.WriteLine(userListMessage);
-                    writer.Flush();
+                    return; // Skip sending the list to avoid blank spaces
+                }
+
+                // ✅ Remove the client's own username before sending
+                userList.Remove(_clientUsernames[client]);
+
+                // ✅ Only send if there are still users in the list
+                if (userList.Count > 0)
+                {
+                    string userListMessage = "USER_LIST:" + string.Join(",", userList);
+
+                    NetworkStream stream = client.GetStream();
+                    using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                    {
+                        writer.WriteLine(userListMessage);
+                        writer.Flush();
+                    }
                 }
             }
             catch (Exception ex)
@@ -314,7 +344,6 @@ namespace CMPG315_Test
                 MessageBox.Show($"Failed to send user list to client: {ex.Message}");
             }
         }
-
 
         private void ListenForClientMessages(TcpClient client)
         {
@@ -408,8 +437,10 @@ namespace CMPG315_Test
 
                 // ✅ Notify all clients that this user left
                 BroadcastToAllClients($"USER_LEFT:{username}");
+
             }
         }
+
 
 
         private void BroadcastToAllClients(string message)
@@ -501,6 +532,7 @@ namespace CMPG315_Test
                 }
             }
         }
+
 
         private void ShutdownServer()
         {
