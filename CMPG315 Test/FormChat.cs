@@ -20,6 +20,8 @@ namespace CMPG315_Test
 
         private readonly List<TcpClient> _connectedClients = new();
         private readonly Dictionary<TcpClient, string> _clientUsernames = new();
+        private readonly SynchronizationContext _syncContext = SynchronizationContext.Current;
+
 
         // Client constructor
         public FormChat(TcpClient client, string username, bool isOnline)
@@ -81,66 +83,70 @@ namespace CMPG315_Test
                 Application.Exit();
             }
         }
-
-
         private void ListenForServerMessages()
         {
             try
             {
                 NetworkStream stream = _client.GetStream();
-                byte[] buffer = new byte[1024];
 
-                while (true)
+                // ✅ Use StreamReader for consistency
+                using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
                 {
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-
-                    if (bytesRead > 0)
+                    while (true)
                     {
-                        string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        // ✅ Read the message line by line
+                        string message = reader.ReadLine();
 
-                        if (message.StartsWith("DISCONNECTED::"))
+                        if (!string.IsNullOrEmpty(message))
                         {
-                            string username = message.Split("::")[1];
-                            Invoke((MethodInvoker)delegate
+                            if (message.StartsWith("DISCONNECTED::"))
                             {
-                                txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
-                                cbUsers.Items.Remove(username);
-                            });
-                            continue;
-                        }
+                                string username = message.Split("::")[1];
+                                _syncContext.Post(_ =>
+                                {
+                                    txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
+                                    cbUsers.Items.Remove(username);
+                                }, null);
+                                continue;
+                            }
 
-                        if (message == "SERVER_DOWN")
-                        {
-                            Invoke((MethodInvoker)delegate
+                            if (message == "SERVER_DOWN")
                             {
-                                lblConnectionStatus.Text = "Offline";
-                                lblConnectionStatus.ForeColor = Color.Red;
-                                txtbChat.AppendText("Server has disconnected." + Environment.NewLine);
-                            });
-                            continue;
-                        }
+                                _syncContext.Post(_ =>
+                                {
+                                    lblConnectionStatus.Text = "Offline";
+                                    lblConnectionStatus.ForeColor = Color.Red;
+                                    txtbChat.AppendText("Server has disconnected." + Environment.NewLine);
+                                }, null);
+                                continue;
+                            }
 
-                        if (IsHandleCreated)
-                        {
-                            Invoke((MethodInvoker)delegate
+                            if (message.StartsWith("USER_LIST:"))
                             {
-                                txtbChat.AppendText(message + Environment.NewLine);
-                            });
+                                // Prevent user list from displaying in the chat window
+                                continue;
+                            }
+
+                            // ✅ Display message properly for the client
+                            _syncContext.Post(_ =>
+                            {
+                                if (!string.IsNullOrWhiteSpace(message))
+                                {
+                                    txtbChat.AppendText(message + Environment.NewLine);
+                                }
+                            }, null);
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                if (IsHandleCreated)
+                _syncContext.Post(_ =>
                 {
-                    Invoke((MethodInvoker)delegate
-                    {
-                        lblConnectionStatus.Text = "Offline";
-                        lblConnectionStatus.ForeColor = Color.Red;
-                        MessageBox.Show("Error receiving message: " + ex.Message);
-                    });
-                }
+                    lblConnectionStatus.Text = "Offline";
+                    lblConnectionStatus.ForeColor = Color.Red;
+                    MessageBox.Show("Error receiving message: " + ex.Message);
+                }, null);
             }
         }
 
@@ -241,6 +247,10 @@ namespace CMPG315_Test
                         byte[] confirmation = Encoding.UTF8.GetBytes("CONFIRMED");
                         stream.Write(confirmation, 0, confirmation.Length);
 
+                        // ✅ Broadcast "User has joined" to all clients
+                        string joinMessage = $"{username} has joined the chat.";
+                        BroadcastToAllClients(joinMessage, null);
+
                         // ✅ Start listening for client messages
                         Thread clientThread = new Thread(() => ListenForClientMessages(client))
                         {
@@ -259,6 +269,7 @@ namespace CMPG315_Test
             }
         }
 
+
         private void ListenForClientMessages(TcpClient client)
         {
             try
@@ -268,11 +279,10 @@ namespace CMPG315_Test
                 {
                     while (true)
                     {
-                        string message = reader.ReadLine(); // Use ReadLine for clean separation
+                        string message = reader.ReadLine()?.Trim(); // Use ReadLine for clean separation
 
                         if (!string.IsNullOrEmpty(message))
                         {
-                            // ✅ Disconnect logic
                             if (message.StartsWith("DISCONNECTED::"))
                             {
                                 string username = message.Split("::")[1];
@@ -282,28 +292,34 @@ namespace CMPG315_Test
                                     _clientUsernames.Remove(client);
                                     _connectedClients.Remove(client);
 
-                                    Invoke((MethodInvoker)delegate
+                                    string disconnectMsg = $"{username} has left the chat.";
+                                    BroadcastToAllClients(disconnectMsg, client);
+
+                                    _syncContext.Post(_ =>
                                     {
                                         cbUsers.Items.Remove(username);
-                                        txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
-                                    });
+                                        txtbChat.AppendText(disconnectMsg + Environment.NewLine);
+                                    }, null);
 
                                     BroadcastUserList();
                                 }
                                 continue;
                             }
 
-                            // ✅ Display message on the server side
                             string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
-                            string displayMessage = $"[{clientUsername}]: {message}";
+                            string formattedMessage = $"[{clientUsername}]: {message}";
 
-                            Invoke((MethodInvoker)delegate
+                            // ✅ Use SynchronizationContext to update the UI
+                            _syncContext.Post(_ =>
                             {
-                                txtbChat.AppendText(displayMessage + Environment.NewLine);
-                            });
+                                if (!string.IsNullOrWhiteSpace(formattedMessage))
+                                {
+                                    txtbChat.AppendText(formattedMessage + Environment.NewLine);
+                                }
+                            }, null);
 
                             // ✅ Broadcast to all other clients
-                            BroadcastToAllClients(displayMessage, client);
+                            BroadcastToAllClients(formattedMessage, client);
                         }
                     }
                 }
@@ -327,8 +343,9 @@ namespace CMPG315_Test
                             NetworkStream stream = client.GetStream();
                             using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
                             {
-                                writer.WriteLine(message); // Write and flush
-                                writer.Flush();
+                                // ✅ Use WriteLine to send the message and auto-append Environment.NewLine
+                                writer.WriteLine(message); // WriteLine adds the newline
+                                writer.Flush(); // ✅ Ensure it flushes immediately
                             }
                         }
                     }
@@ -339,7 +356,6 @@ namespace CMPG315_Test
                 }
             }
         }
-
 
         private void ListenForServerStatus()
         {
