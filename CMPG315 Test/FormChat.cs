@@ -17,22 +17,29 @@ namespace CMPG315_Test
         private readonly bool _isServer;
         private readonly int _serverPort;
         private bool _serverRunning = false;
+        private static string usernameFilter = string.Empty;
 
         private readonly List<TcpClient> _connectedClients = new();
         private readonly Dictionary<TcpClient, string> _clientUsernames = new();
         private readonly SynchronizationContext _syncContext = SynchronizationContext.Current;
+
+        private List<string> localUserList = new List<string>();
+
 
 
         // Client constructor
         public FormChat(TcpClient client, string username, bool isOnline)
         {
             InitializeComponent();
-            lstUsers.Items.Add("Company Group"); // Adding the default group
+            lstUsers.Items.Add("Company Group");
             lstUsers.SelectedIndex = 0;
 
             _client = client;
             _username = username;
             _isServer = false;
+
+            // ✅ Set the username filter to the client's username
+            usernameFilter = username;
 
             if (isOnline)
             {
@@ -92,6 +99,7 @@ namespace CMPG315_Test
         }
 
 
+
         private void ListenForServerMessages()
         {
             try
@@ -106,49 +114,74 @@ namespace CMPG315_Test
 
                         if (!string.IsNullOrEmpty(message))
                         {
-                            if (message.StartsWith("USER_LIST:"))
+                            if (message.StartsWith("USER_JOINED:"))
+                            {
+                                string username = message.Replace("USER_JOINED:", "").Trim();
+                                _syncContext.Post(_ =>
+                                {
+                                    if (username != _username && !lstUsers.Items.Contains(username))
+                                    {
+                                        lstUsers.Items.Add(username);
+                                        txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
+                                    }
+                                }, null);
+                            }
+                            else if (message.StartsWith("USER_LEFT:"))
+                            {
+                                string username = message.Replace("USER_LEFT:", "").Trim();
+                                _syncContext.Post(_ =>
+                                {
+                                    if (lstUsers.Items.Contains(username))
+                                    {
+                                        lstUsers.Items.Remove(username);
+                                        txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
+                                    }
+                                }, null);
+                            }
+                            else if (message.StartsWith("USER_LIST:"))
                             {
                                 string[] users = message.Replace("USER_LIST:", "").Split(',');
 
                                 _syncContext.Post(_ =>
                                 {
                                     lstUsers.Items.Clear();
+                                    lstUsers.Items.Add("Company Group");
+
                                     foreach (var user in users)
                                     {
-                                        // ✅ Exclude the current user's name from the list
-                                        if (user != _username && !string.IsNullOrWhiteSpace(user))
+                                        if (!string.IsNullOrWhiteSpace(user) && user != _username)
                                         {
-                                            lstUsers.Items.Add(user);
+                                            if (!lstUsers.Items.Contains(user))
+                                            {
+                                                lstUsers.Items.Add(user);
+                                            }
+                                        }
+                                    }
+
+                                    // ✅ Remove empty indexes
+                                    for (int i = lstUsers.Items.Count - 1; i >= 0; i--)
+                                    {
+                                        if (string.IsNullOrWhiteSpace(lstUsers.Items[i].ToString()))
+                                        {
+                                            lstUsers.Items.RemoveAt(i);
                                         }
                                     }
                                 }, null);
-
-                                continue;
                             }
-                            else if (message.Contains("has joined the chat") || message.Contains("has left the chat"))
+                            else
                             {
                                 _syncContext.Post(_ =>
                                 {
                                     txtbChat.AppendText(message + Environment.NewLine);
                                 }, null);
                             }
-                            else
-                            {
-                                if (!message.Contains($"[{_username}]"))
-                                {
-                                    // ✅ Display messages from other clients
-                                    _syncContext.Post(_ =>
-                                    {
-                                        if (!string.IsNullOrWhiteSpace(message))
-                                        {
-                                            txtbChat.AppendText(message + Environment.NewLine);
-                                        }
-                                    }, null);
-                                }
-                            }
                         }
                     }
                 }
+            }
+            catch (IOException ioEx)
+            {
+                MessageBox.Show($"Connection lost: {ioEx.Message}");
             }
             catch (Exception ex)
             {
@@ -160,6 +193,8 @@ namespace CMPG315_Test
                 }, null);
             }
         }
+
+
 
         // Host constructor
         public FormChat(bool isServer, int port, string username, bool isOnline)
@@ -240,27 +275,27 @@ namespace CMPG315_Test
                     int bytesRead = stream.Read(buffer, 0, buffer.Length);
                     string username = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim();
 
-                    Invoke((MethodInvoker)(() =>
+                    // ✅ Store in dictionary for identification
+                    if (!_clientUsernames.ContainsKey(client))
+                    {
+                        _clientUsernames[client] = username;
+                    }
+
+                    // ✅ Add to server's listbox
+                    _syncContext.Post(_ =>
                     {
                         if (!lstUsers.Items.Contains(username))
                         {
                             lstUsers.Items.Add(username);
                             txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
                         }
-                    }));
+                    }, null);
 
-                    // Store in dictionary for identification
-                    if (!_clientUsernames.ContainsKey(client))
-                    {
-                        _clientUsernames[client] = username;
-                    }
+                    // ✅ Broadcast the join message to all clients
+                    BroadcastToAllClients($"USER_JOINED:{username}");
 
-                    // ✅ Broadcast the join message to all clients *except the one who joined*
-                    string joinMessage = $"{username} has joined the chat.";
-                    BroadcastToAllClients(joinMessage, client);
-
-                    // ✅ Broadcast the user list to all clients
-                    BroadcastUserList();
+                    // ✅ Send the full list of connected users to the newly joined client
+                    SendFullUserList(client);
 
                     // ✅ Start listening for client messages
                     Thread clientThread = new Thread(() => ListenForClientMessages(client))
@@ -276,6 +311,39 @@ namespace CMPG315_Test
             }
         }
 
+        private void SendFullUserList(TcpClient client)
+        {
+            try
+            {
+                var userList = _clientUsernames.Values.ToList();
+
+                // ✅ If the list only contains the new user, don't send the list
+                if (userList.Count == 1 && userList[0] == _clientUsernames[client])
+                {
+                    return; // Skip sending the list to avoid blank spaces
+                }
+
+                // ✅ Remove the client's own username before sending
+                userList.Remove(_clientUsernames[client]);
+
+                // ✅ Only send if there are still users in the list
+                if (userList.Count > 0)
+                {
+                    string userListMessage = "USER_LIST:" + string.Join(",", userList);
+
+                    NetworkStream stream = client.GetStream();
+                    using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                    {
+                        writer.WriteLine(userListMessage);
+                        writer.Flush();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to send user list to client: {ex.Message}");
+            }
+        }
 
         private void ListenForClientMessages(TcpClient client)
         {
@@ -357,22 +425,55 @@ namespace CMPG315_Test
                 _clientUsernames.Remove(client);
                 _connectedClients.Remove(client);
 
-                // ✅ Synchronize the list before broadcasting
+                // ✅ Remove from the server's list
                 _syncContext.Post(_ =>
                 {
-                    lstUsers.Items.Clear();
-                    foreach (var user in _clientUsernames.Values)
+                    if (lstUsers.Items.Contains(username))
                     {
-                        lstUsers.Items.Add(user);
+                        lstUsers.Items.Remove(username);
+                        txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
                     }
-
-                    txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
-
-                    // ✅ Now broadcast the updated list
-                    BroadcastUserList();
                 }, null);
+
+                // ✅ Notify all clients that this user left
+                BroadcastToAllClients($"USER_LEFT:{username}");
+
             }
         }
+
+
+
+        private void BroadcastToAllClients(string message)
+        {
+            lock (_connectedClients)
+            {
+                foreach (var client in _connectedClients.ToList())
+                {
+                    try
+                    {
+                        if (client.Connected)
+                        {
+                            NetworkStream stream = client.GetStream();
+                            using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                            {
+                                writer.WriteLine(message);
+                                writer.Flush();
+                            }
+                        }
+                        else
+                        {
+                            _connectedClients.Remove(client);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to send message to client: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+
         private void ListenForServerStatus()
         {
             try
@@ -401,8 +502,11 @@ namespace CMPG315_Test
 
         private void BroadcastUserList()
         {
-            // ✅ Refresh the list to reflect the internal state
-            string userList = "USER_LIST:" + string.Join(",", lstUsers.Items.Cast<string>());
+            // ✅ Get the current list of connected clients from the server dictionary
+            var userList = _clientUsernames.Values.ToList();
+
+            // ✅ Build the message to send
+            string userListMessage = "USER_LIST:" + string.Join(",", userList);
 
             foreach (var client in _connectedClients.ToList())
             {
@@ -413,7 +517,7 @@ namespace CMPG315_Test
                         NetworkStream stream = client.GetStream();
                         using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
                         {
-                            writer.WriteLine(userList);
+                            writer.WriteLine(userListMessage);
                             writer.Flush();
                         }
                     }
