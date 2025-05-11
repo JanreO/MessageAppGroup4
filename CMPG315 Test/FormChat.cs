@@ -34,6 +34,7 @@ namespace CMPG315_Test
             InitializeComponent();
             lstUsers.Items.Add("Company Group");
             lstUsers.SelectedIndex = 0;
+            _currentChat = "Company Group";
 
             _client = client;
             _username = username;
@@ -65,6 +66,7 @@ namespace CMPG315_Test
         }
 
 
+
         private void FormChat_FormClosing(object? sender, FormClosingEventArgs e)
         {
             try
@@ -74,6 +76,9 @@ namespace CMPG315_Test
                     ShutdownServer();
                     _listener?.Stop();
                     _serverRunning = false;
+
+                    // ✅ Delete all user chat files from Documents\CMPG315_Test
+                    DeleteAllChatFiles();
                 }
 
                 if (_client != null && _client.Connected)
@@ -99,7 +104,34 @@ namespace CMPG315_Test
             }
         }
 
+        private void DeleteAllChatFiles()
+        {
+            try
+            {
+                string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
 
+                if (Directory.Exists(documentsPath))
+                {
+                    var files = Directory.GetFiles(documentsPath, "*.txt");
+                    foreach (var file in files)
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                            Console.WriteLine($"Deleted file: {file}");
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Failed to delete file: {file}. Error: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error deleting chat files: {ex.Message}");
+            }
+        }
 
         private void ListenForServerMessages()
         {
@@ -521,12 +553,19 @@ namespace CMPG315_Test
         }
 
         private void btnSend_Click(object sender, EventArgs e)
-        {
+{
             string message = txtbText.Text.Trim();
 
             if (string.IsNullOrEmpty(message))
             {
                 MessageBox.Show("Message cannot be empty.");
+                return;
+            }
+
+            // ✅ Check if a chat is selected
+            if (lstUsers.SelectedItem == null)
+            {
+                MessageBox.Show("Please select a chat first.");
                 return;
             }
 
@@ -540,13 +579,13 @@ namespace CMPG315_Test
                         NetworkStream stream = _client.GetStream();
                         using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
                         {
-                            string formattedMessage = $"GROUP::{message}";
+                            string formattedMessage = message;
                             writer.WriteLine(formattedMessage);
                             writer.Flush();
                         }
 
                         // Display on sender's chat window
-                        txtbChat.AppendText($"You (Group): {message}" + Environment.NewLine);
+                        txtbChat.AppendText($"You: {message}" + Environment.NewLine);
                         StoreMessageInLog(_username, "Company Group", message);
                     }
                     else
@@ -572,6 +611,7 @@ namespace CMPG315_Test
                 MessageBox.Show("You are not connected to the server.");
             }
         }
+
 
 
         private void lstUsers_SelectedIndexChanged(object sender, EventArgs e)
@@ -607,7 +647,14 @@ namespace CMPG315_Test
         {
             try
             {
-                string fileName = $"{sender}_to_{receiver}.txt";
+                string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+
+                if (!Directory.Exists(documentsPath))
+                {
+                    Directory.CreateDirectory(documentsPath);
+                }
+
+                string fileName = Path.Combine(documentsPath, $"{sender}_to_{receiver}.txt");
 
                 using (StreamWriter writer = new StreamWriter(fileName, append: true))
                 {
@@ -619,6 +666,7 @@ namespace CMPG315_Test
                 MessageBox.Show($"Failed to store message: {ex.Message}");
             }
         }
+
 
         private void ListenForPrivateServerMessages()
         {
@@ -664,9 +712,11 @@ namespace CMPG315_Test
         {
             txtbChat.Clear(); // Clear the current chat window
 
+            string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+
             string fileName = selectedUser == "Company Group"
-                ? $"{_username}_to_Company Group.txt"
-                : $"{_username}_to_{selectedUser}.txt";
+                ? Path.Combine(documentsPath, $"{_username}_to_Company Group.txt")
+                : Path.Combine(documentsPath, $"{_username}_to_{selectedUser}.txt");
 
             if (File.Exists(fileName))
             {
@@ -677,13 +727,21 @@ namespace CMPG315_Test
                 }
             }
         }
+
         private void SaveChatHistory()
         {
             if (_currentChat == null) return;
 
+            string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+
+            if (!Directory.Exists(documentsPath))
+            {
+                Directory.CreateDirectory(documentsPath);
+            }
+
             string fileName = _currentChat == "Company Group"
-                ? $"{_username}_to_Company Group.txt"
-                : $"{_username}_to_{_currentChat}.txt";
+                ? Path.Combine(documentsPath, $"{_username}_to_Company Group.txt")
+                : Path.Combine(documentsPath, $"{_username}_to_{_currentChat}.txt");
 
             File.WriteAllText(fileName, txtbChat.Text);
         }
