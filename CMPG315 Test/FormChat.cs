@@ -25,7 +25,8 @@ namespace CMPG315_Test
 
         private List<string> localUserList = new List<string>();
 
-
+        // Declare _currentChat to store the currently selected chat
+        private string _currentChat = "Company Group"; // Default to the main group chat
 
         // Client constructor
         public FormChat(TcpClient client, string username, bool isOnline)
@@ -498,42 +499,6 @@ namespace CMPG315_Test
             }
         }
 
-
-
-        private void BroadcastUserList()
-        {
-            // ✅ Get the current list of connected clients from the server dictionary
-            var userList = _clientUsernames.Values.ToList();
-
-            // ✅ Build the message to send
-            string userListMessage = "USER_LIST:" + string.Join(",", userList);
-
-            foreach (var client in _connectedClients.ToList())
-            {
-                try
-                {
-                    if (client.Connected)
-                    {
-                        NetworkStream stream = client.GetStream();
-                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
-                        {
-                            writer.WriteLine(userListMessage);
-                            writer.Flush();
-                        }
-                    }
-                    else
-                    {
-                        _connectedClients.Remove(client);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Failed to send user list: " + ex.Message);
-                }
-            }
-        }
-
-
         private void ShutdownServer()
         {
             byte[] message = Encoding.UTF8.GetBytes("SERVER_DOWN");
@@ -557,23 +522,44 @@ namespace CMPG315_Test
 
         private void btnSend_Click(object sender, EventArgs e)
         {
-            string message = txtbText.Text; // Only send the message, not the username
+            string message = txtbText.Text.Trim();
 
-            // Check if the client is connected
+            if (string.IsNullOrEmpty(message))
+            {
+                MessageBox.Show("Message cannot be empty.");
+                return;
+            }
+
             if (_client != null && _client.Connected)
             {
                 try
                 {
-                    NetworkStream stream = _client.GetStream();
-                    using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                    if (lstUsers.SelectedItem.ToString() == "Company Group")
                     {
-                        string formattedMessage = $"{message}";
-                        writer.WriteLine(formattedMessage); // ✅ WriteLine to auto-append newline
-                        writer.Flush();
+                        // ✅ Group Message
+                        NetworkStream stream = _client.GetStream();
+                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                        {
+                            string formattedMessage = $"GROUP::{message}";
+                            writer.WriteLine(formattedMessage);
+                            writer.Flush();
+                        }
+
+                        // Display on sender's chat window
+                        txtbChat.AppendText($"You (Group): {message}" + Environment.NewLine);
+                        StoreMessageInLog(_username, "Company Group", message);
+                    }
+                    else
+                    {
+                        // ✅ Private Message
+                        string targetUser = lstUsers.SelectedItem.ToString();
+                        SendPrivateMessage(targetUser, message);
+
+                        // Display on sender's chat window
+                        txtbChat.AppendText($"You (Private to {targetUser}): {message}" + Environment.NewLine);
+                        StoreMessageInLog(_username, targetUser, message);
                     }
 
-                    // Display on sender's chat window
-                    txtbChat.AppendText($"You: {txtbText.Text}" + Environment.NewLine);
                     txtbText.Clear();
                 }
                 catch (Exception ex)
@@ -587,9 +573,120 @@ namespace CMPG315_Test
             }
         }
 
+
         private void lstUsers_SelectedIndexChanged(object sender, EventArgs e)
         {
-
+            if (lstUsers.SelectedItem != null)
+            {
+                SaveChatHistory(); // Save current chat window
+                _currentChat = lstUsers.SelectedItem.ToString();
+                LoadChatHistory(_currentChat); // Load the new chat
+            }
         }
+
+
+        private void SendPrivateMessage(string targetUser, string message)
+        {
+            try
+            {
+                NetworkStream stream = _client.GetStream();
+                using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                {
+                    string formattedMessage = $"PRIVATE::{targetUser}::{message}";
+                    writer.WriteLine(formattedMessage);
+                    writer.Flush();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to send private message: {ex.Message}");
+            }
+        }
+
+        private void StoreMessageInLog(string sender, string receiver, string message)
+        {
+            try
+            {
+                string fileName = $"{sender}_to_{receiver}.txt";
+
+                using (StreamWriter writer = new StreamWriter(fileName, append: true))
+                {
+                    writer.WriteLine($"{sender}: {message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to store message: {ex.Message}");
+            }
+        }
+
+        private void ListenForPrivateServerMessages()
+        {
+            try
+            {
+                NetworkStream stream = _client.GetStream();
+
+                using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                {
+                    while (true)
+                    {
+                        string message = reader.ReadLine();
+
+                        if (!string.IsNullOrEmpty(message) && message.StartsWith("PRIVATE::"))
+                        {
+                            string[] parts = message.Split(new[] { "::" }, StringSplitOptions.None);
+                            string sender = parts[1];
+                            string content = parts[2];
+
+                            _syncContext.Post(_ =>
+                            {
+                                if (_currentChat == sender)
+                                {
+                                    txtbChat.AppendText($"[Private from {sender}]: {content}" + Environment.NewLine);
+                                }
+                            }, null);
+
+                            StoreMessageInLog(sender, _username, content);
+                        }
+                    }
+                }
+            }
+            catch (IOException ioEx)
+            {
+                MessageBox.Show($"Private message connection lost: {ioEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error receiving private message: " + ex.Message);
+            }
+        }
+        private void LoadChatHistory(string selectedUser)
+        {
+            txtbChat.Clear(); // Clear the current chat window
+
+            string fileName = selectedUser == "Company Group"
+                ? $"{_username}_to_Company Group.txt"
+                : $"{_username}_to_{selectedUser}.txt";
+
+            if (File.Exists(fileName))
+            {
+                var lines = File.ReadAllLines(fileName);
+                foreach (var line in lines)
+                {
+                    txtbChat.AppendText(line + Environment.NewLine);
+                }
+            }
+        }
+        private void SaveChatHistory()
+        {
+            if (_currentChat == null) return;
+
+            string fileName = _currentChat == "Company Group"
+                ? $"{_username}_to_Company Group.txt"
+                : $"{_username}_to_{_currentChat}.txt";
+
+            File.WriteAllText(fileName, txtbChat.Text);
+        }
+
     }
 }
