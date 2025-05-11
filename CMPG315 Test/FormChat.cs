@@ -586,5 +586,10 @@ namespace CMPG315_Test
                 MessageBox.Show("You are not connected to the server.");
             }
         }
+
+        private void lstUsers_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 }
