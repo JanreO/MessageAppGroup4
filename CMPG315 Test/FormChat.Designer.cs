@@ -35,6 +35,7 @@
             btnSend = new Button();
             lstUsers = new ListBox();
             label1 = new Label();
+            lblChatSelected = new Label();
             SuspendLayout();
             // 
             // label2
@@ -87,24 +88,35 @@
             // 
             lstUsers.FormattingEnabled = true;
             lstUsers.ItemHeight = 15;
-            lstUsers.Location = new Point(651, 52);
+            lstUsers.Location = new Point(651, 67);
             lstUsers.Name = "lstUsers";
-            lstUsers.Size = new Size(137, 514);
+            lstUsers.Size = new Size(137, 499);
             lstUsers.TabIndex = 7;
+            lstUsers.SelectedIndexChanged += lstUsers_SelectedIndexChanged;
             // 
             // label1
             // 
             label1.AutoSize = true;
             label1.Location = new Point(651, 34);
             label1.Name = "label1";
-            label1.Size = new Size(38, 15);
+            label1.Size = new Size(82, 15);
             label1.TabIndex = 8;
-            label1.Text = "Users:";
+            label1.Text = "Chat Selected:";
+            // 
+            // lblChatSelected
+            // 
+            lblChatSelected.AutoSize = true;
+            lblChatSelected.Location = new Point(651, 49);
+            lblChatSelected.Name = "lblChatSelected";
+            lblChatSelected.Size = new Size(38, 15);
+            lblChatSelected.TabIndex = 9;
+            lblChatSelected.Text = "label3";
             // 
             // FormChat
             // 
             AutoScaleMode = AutoScaleMode.None;
             ClientSize = new Size(800, 615);
+            Controls.Add(lblChatSelected);
             Controls.Add(label1);
             Controls.Add(lstUsers);
             Controls.Add(btnSend);
@@ -129,5 +141,6 @@
         private Button btnSend;
         private ListBox lstUsers;
         private Label label1;
+        private Label lblChatSelected;
     }
 }
