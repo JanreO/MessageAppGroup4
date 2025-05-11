@@ -24,6 +24,7 @@ namespace CMPG315_Test
         private readonly SynchronizationContext _syncContext = SynchronizationContext.Current;
 
         private List<string> localUserList = new List<string>();
+        private string messageType = "Group"; // Default to group chat
 
         // Declare _currentChat to store the currently selected chat
         private string _currentChat = "Company Group"; // Default to the main group chat
@@ -394,24 +395,42 @@ namespace CMPG315_Test
                             if (message.StartsWith("DISCONNECTED::"))
                             {
                                 string username = message.Split("::")[1];
-                                HandleClientDisconnect(client, username); // ✅ Call the new method
+                                HandleClientDisconnect(client, username);
                                 continue;
                             }
 
-                            string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
-                            string formattedMessage = $"[{clientUsername}]: {message}";
-
-                            // ✅ Use SynchronizationContext to update the UI
-                            _syncContext.Post(_ =>
+                            if (message.StartsWith("PRIVATE::"))
                             {
-                                if (!string.IsNullOrWhiteSpace(formattedMessage))
-                                {
-                                    txtbChat.AppendText(formattedMessage + Environment.NewLine);
-                                }
-                            }, null);
+                                // Extract the sender, receiver, and message
+                                string[] parts = message.Split(new[] { "::" }, StringSplitOptions.None);
+                                string sender = parts[1];
+                                string receiver = parts[2];
+                                string privateMessage = parts[3];
 
-                            // ✅ Broadcast to all other clients
-                            BroadcastToAllClients(formattedMessage, client);
+                                // Find the target client
+                                var targetClient = _connectedClients.FirstOrDefault(c => _clientUsernames[c] == receiver);
+                                if (targetClient != null)
+                                {
+                                    // Send only to the target client
+                                    BroadcastToSingleClient(targetClient, $"PRIVATE::{sender}::{privateMessage}");
+                                }
+                            }
+                            else
+                            {
+                                string clientUsername = _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown";
+                                string formattedMessage = $"[{clientUsername}]: {message}";
+
+                                _syncContext.Post(_ =>
+                                {
+                                    if (!string.IsNullOrWhiteSpace(formattedMessage))
+                                    {
+                                        txtbChat.AppendText(formattedMessage + Environment.NewLine);
+                                    }
+                                }, null);
+
+                                // Broadcast to all other clients
+                                BroadcastToAllClients(formattedMessage, client);
+                            }
                         }
                     }
                 }
@@ -420,6 +439,23 @@ namespace CMPG315_Test
             {
                 HandleClientDisconnect(client, _clientUsernames.ContainsKey(client) ? _clientUsernames[client] : "Unknown");
                 MessageBox.Show($"Error receiving message from client: {ex.Message}");
+            }
+        }
+
+        private void BroadcastToSingleClient(TcpClient client, string message)
+        {
+            try
+            {
+                NetworkStream stream = client.GetStream();
+                using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
+                {
+                    writer.WriteLine(message);
+                    writer.Flush();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to send private message: {ex.Message}");
             }
         }
 
@@ -573,7 +609,7 @@ namespace CMPG315_Test
             {
                 try
                 {
-                    if (lstUsers.SelectedItem.ToString() == "Company Group")
+                    if (messageType == "Group")
                     {
                         // ✅ Group Message
                         NetworkStream stream = _client.GetStream();
@@ -588,15 +624,11 @@ namespace CMPG315_Test
                         txtbChat.AppendText($"You: {message}" + Environment.NewLine);
                         StoreMessageInLog(_username, "Company Group", message);
                     }
-                    else
+                    else if (messageType == "Private")
                     {
                         // ✅ Private Message
                         string targetUser = lstUsers.SelectedItem.ToString();
                         SendPrivateMessage(targetUser, message);
-
-                        // Display on sender's chat window
-                        txtbChat.AppendText($"You (Private to {targetUser}): {message}" + Environment.NewLine);
-                        StoreMessageInLog(_username, targetUser, message);
                     }
 
                     txtbText.Clear();
@@ -621,8 +653,12 @@ namespace CMPG315_Test
                 SaveChatHistory(); // Save current chat window
                 _currentChat = lstUsers.SelectedItem.ToString();
                 LoadChatHistory(_currentChat); // Load the new chat
+
+                // Set the message type
+                messageType = _currentChat == "Company Group" ? "Group" : "Private";
             }
         }
+
 
 
         private void SendPrivateMessage(string targetUser, string message)
@@ -632,16 +668,21 @@ namespace CMPG315_Test
                 NetworkStream stream = _client.GetStream();
                 using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
                 {
-                    string formattedMessage = $"PRIVATE::{targetUser}::{message}";
+                    string formattedMessage = $"PRIVATE::{_username}::{targetUser}::{message}";
                     writer.WriteLine(formattedMessage);
                     writer.Flush();
                 }
+
+                // Display on sender's chat window
+                txtbChat.AppendText($"You (Private to {targetUser}): {message}" + Environment.NewLine);
+                StoreMessageInLog(_username, targetUser, message);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to send private message: {ex.Message}");
             }
         }
+
 
         private void StoreMessageInLog(string sender, string receiver, string message)
         {
