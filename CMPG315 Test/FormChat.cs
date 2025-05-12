@@ -683,7 +683,7 @@ namespace CMPG315_Test
                     }
 
                     // ✅ Display on sender's chat window
-                    txtbChat.AppendText($"You: {message}" + Environment.NewLine);
+                    txtbChat.AppendText($"[{_username}]: {message}" + Environment.NewLine);
 
                     // ✅ Clear the text box after sending
                     txtbText.Clear();
@@ -755,7 +755,7 @@ namespace CMPG315_Test
 
                 if (receiver == "Company Group")
                 {
-                    // ✅ Save to a single Company_Group.txt file
+                    // ✅ Save to the Group Chat log
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
                     using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
                     {
@@ -764,18 +764,20 @@ namespace CMPG315_Test
                 }
                 else
                 {
-                    // ✅ Save to the individual logs for private chats
+                    // ✅ Save to private logs for sender and receiver perspectives
                     string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}_to_{receiver}.txt");
                     string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}_to_{sender}.txt");
 
+                    // ✅ Sender's perspective -> "You: message"
                     using (StreamWriter writer = new StreamWriter(senderToReceiverFile, append: true))
                     {
                         writer.WriteLine($"You: {message}");
                     }
 
+                    // ✅ Receiver's perspective -> "[Sender]: message"
                     using (StreamWriter writer = new StreamWriter(receiverToSenderFile, append: true))
                     {
-                        writer.WriteLine($"{sender}: {message}");
+                        writer.WriteLine($"[{sender}]: {message}");
                     }
                 }
             }
@@ -839,20 +841,16 @@ namespace CMPG315_Test
         {
             if (lstUsers.SelectedItem != null)
             {
-                
+                // ✅ Set the current chat to the selected item
                 _currentChat = lstUsers.SelectedItem.ToString();
                 messageType = _currentChat == "Company Group" ? "Group" : "Private";
                 lblChatSelected.Text = lstUsers.SelectedItem.ToString();
-                if (messageType == "Private")
-                {
-                    NetworkStream stream = _client.GetStream();
-                    using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
-                    {
-                        string loadCommand = $"LOAD_PRIVATE::{_username}::{_currentChat}";
-                        writer.WriteLine(loadCommand);
-                        writer.Flush();
-                    }
-                }
+
+                // ✅ Clear the current chat window
+                txtbChat.Clear();
+
+                // ✅ Load the history of the newly selected chat
+                LoadChatHistory(_currentChat);
             }
         }
 
@@ -860,20 +858,24 @@ namespace CMPG315_Test
         {
             try
             {
-                txtbChat.Clear(); // Clear the current chat window
+                // ✅ Clear the current chat window
+                txtbChat.Clear();
+
+                // ✅ Path to the documents folder
                 string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
 
                 if (selectedUser == "Company Group")
                 {
+                    // ✅ Group Chat
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
 
                     if (File.Exists(groupChatFile))
                     {
+                        // ✅ Read all lines and load them into the chat window
                         string[] lines = File.ReadAllLines(groupChatFile);
 
                         foreach (string line in lines)
                         {
-                            // ✅ Skip the header and separator lines
                             if (!line.Contains("Chat Log for Group Chat") && !line.Contains("========================================="))
                             {
                                 txtbChat.AppendText(line + Environment.NewLine);
@@ -882,20 +884,38 @@ namespace CMPG315_Test
                     }
                     else
                     {
-                        txtbChat.AppendText("No messages yet." + Environment.NewLine);
+                        txtbChat.AppendText("No messages yet in the group chat." + Environment.NewLine);
                     }
                 }
                 else
                 {
-                    string chatFile = Path.Combine(documentsPath, $"{_username}_to_{selectedUser}.txt");
+                    // ✅ Private Chat - User Perspective
+                    string chatFileFromMe = Path.Combine(documentsPath, $"{_username}_to_{selectedUser}.txt");
+                    string chatFileToMe = Path.Combine(documentsPath, $"{selectedUser}_to_{_username}.txt");
 
-                    if (File.Exists(chatFile))
+                    // ✅ Read both files into a list
+                    List<string> chatLines = new List<string>();
+
+                    if (File.Exists(chatFileFromMe))
                     {
-                        string[] lines = File.ReadAllLines(chatFile);
+                        string[] linesFromMe = File.ReadAllLines(chatFileFromMe);
+                        chatLines.AddRange(linesFromMe);
+                    }
 
-                        foreach (string line in lines)
+                    if (File.Exists(chatFileToMe))
+                    {
+                        string[] linesToMe = File.ReadAllLines(chatFileToMe);
+                        chatLines.AddRange(linesToMe);
+                    }
+
+                    // ✅ Sort the lines to maintain order
+                    chatLines.Sort();
+
+                    // ✅ Display the messages
+                    if (chatLines.Count > 0)
+                    {
+                        foreach (string line in chatLines)
                         {
-                            // ✅ Skip the header and separator lines
                             if (!line.Contains("Chat Log between") && !line.Contains("========================================="))
                             {
                                 txtbChat.AppendText(line + Environment.NewLine);
@@ -904,7 +924,7 @@ namespace CMPG315_Test
                     }
                     else
                     {
-                        txtbChat.AppendText("No messages yet." + Environment.NewLine);
+                        txtbChat.AppendText($"No messages yet between you and {selectedUser}." + Environment.NewLine);
                     }
                 }
             }
