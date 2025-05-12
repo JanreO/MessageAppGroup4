@@ -473,50 +473,6 @@ namespace CMPG315_Test
             }
         }
 
-        private void BroadcastToSingleClient(TcpClient client, string message)
-        {
-            try
-            {
-                NetworkStream stream = client.GetStream();
-                using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
-                {
-                    writer.WriteLine(message);
-                    writer.Flush();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to send private message: {ex.Message}");
-            }
-        }
-
-        private void BroadcastToAllClients(string message, TcpClient senderClient)
-        {
-            lock (_connectedClients)
-            {
-                foreach (var client in _connectedClients.ToList())
-                {
-                    try
-                    {
-                        if (client.Connected && client != senderClient)
-                        {
-                            NetworkStream stream = client.GetStream();
-                            using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
-                            {
-                                writer.WriteLine(message); // ✅ WriteLine adds the newline
-                                writer.Flush();
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Failed to send message to client: {ex.Message}");
-                    }
-                }
-            }
-        }
-
-
         private void HandleClientDisconnect(TcpClient client, string username)
         {
             if (_clientUsernames.ContainsKey(client))
@@ -757,6 +713,8 @@ namespace CMPG315_Test
                 {
                     // ✅ Save to the Group Chat log
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
+
+                    // ✅ Append to the file, no need to check if it exists since it is created in CreateUserChatFiles
                     using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
                     {
                         writer.WriteLine($"[{sender}]: {message}");
@@ -768,18 +726,25 @@ namespace CMPG315_Test
                     string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}_to_{receiver}.txt");
                     string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}_to_{sender}.txt");
 
-                    // ✅ Sender's perspective -> "You: message"
+                    // ✅ Append directly to the files; assume existence from CreateUserChatFiles
                     using (StreamWriter writer = new StreamWriter(senderToReceiverFile, append: true))
                     {
                         writer.WriteLine($"You: {message}");
                     }
 
-                    // ✅ Receiver's perspective -> "[Sender]: message"
                     using (StreamWriter writer = new StreamWriter(receiverToSenderFile, append: true))
                     {
                         writer.WriteLine($"[{sender}]: {message}");
                     }
                 }
+            }
+            catch (IOException ioEx)
+            {
+                MessageBox.Show($"IO Error while storing message: {ioEx.Message}");
+            }
+            catch (UnauthorizedAccessException uaEx)
+            {
+                MessageBox.Show($"Access Denied: {uaEx.Message}");
             }
             catch (Exception ex)
             {
@@ -884,7 +849,7 @@ namespace CMPG315_Test
                     }
                     else
                     {
-                        txtbChat.AppendText("No messages yet in the group chat." + Environment.NewLine);
+                       
                     }
                 }
                 else
@@ -924,7 +889,7 @@ namespace CMPG315_Test
                     }
                     else
                     {
-                        txtbChat.AppendText($"No messages yet between you and {selectedUser}." + Environment.NewLine);
+                        
                     }
                 }
             }
