@@ -129,6 +129,7 @@
             Name = "FormChat";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "FormChat";
+            Load += FormChat_Load;
             ResumeLayout(false);
             PerformLayout();
         }
