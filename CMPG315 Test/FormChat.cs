@@ -382,22 +382,16 @@ namespace CMPG315_Test
             {
                 if (existingUser != newUser)
                 {
-                    string newUserToExisting = Path.Combine(documentsPath, $"{newUser}_to_{existingUser}.txt");
-                    if (!File.Exists(newUserToExisting))
+                    // Determine the chat file name
+                    string privateChatFile1 = Path.Combine(documentsPath, $"{newUser}_to_{existingUser}.txt");
+                    string privateChatFile2 = Path.Combine(documentsPath, $"{existingUser}_to_{newUser}.txt");
+
+                    // Create the chat file if neither exists
+                    if (!File.Exists(privateChatFile1) && !File.Exists(privateChatFile2))
                     {
-                        using (StreamWriter writer = new StreamWriter(newUserToExisting))
+                        using (StreamWriter writer = new StreamWriter(privateChatFile1))
                         {
                             writer.WriteLine($"Chat Log between {newUser} and {existingUser}");
-                            writer.WriteLine("=========================================");
-                        }
-                    }
-
-                    string existingToNewUser = Path.Combine(documentsPath, $"{existingUser}_to_{newUser}.txt");
-                    if (!File.Exists(existingToNewUser))
-                    {
-                        using (StreamWriter writer = new StreamWriter(existingToNewUser))
-                        {
-                            writer.WriteLine($"Chat Log between {existingUser} and {newUser}");
                             writer.WriteLine("=========================================");
                         }
                     }
@@ -714,7 +708,7 @@ namespace CMPG315_Test
                     // ✅ Save to the Group Chat log
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
 
-                    // ✅ Append to the file, no need to check if it exists since it is created in CreateUserChatFiles
+                    // ✅ Append the message
                     using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
                     {
                         writer.WriteLine($"[{sender}]: {message}");
@@ -722,19 +716,21 @@ namespace CMPG315_Test
                 }
                 else
                 {
-                    // ✅ Save to private logs for sender and receiver perspectives
-                    string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}_to_{receiver}.txt");
-                    string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}_to_{sender}.txt");
+                    // ✅ For private messages, check which file exists or create one
+                    string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}to{receiver}.txt");
+                    string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}to{sender}.txt");
 
-                    // ✅ Append directly to the files; assume existence from CreateUserChatFiles
-                    using (StreamWriter writer = new StreamWriter(senderToReceiverFile, append: true))
+                    string finalFilePath = File.Exists(senderToReceiverFile) ? senderToReceiverFile : receiverToSenderFile;
+
+                    // ✅ If neither exists, create one with the default name
+                    if (finalFilePath == receiverToSenderFile && !File.Exists(receiverToSenderFile))
                     {
-                        writer.WriteLine($"You: {message}");
+                        finalFilePath = senderToReceiverFile;
                     }
 
-                    using (StreamWriter writer = new StreamWriter(receiverToSenderFile, append: true))
+                    using (StreamWriter writer = new StreamWriter(finalFilePath, append: true))
                     {
-                        writer.WriteLine($"[{sender}]: {message}");
+                        writer.WriteLine($"{sender}: {message}");
                     }
                 }
             }
@@ -823,22 +819,17 @@ namespace CMPG315_Test
         {
             try
             {
-                // ✅ Clear the current chat window
                 txtbChat.Clear();
 
-                // ✅ Path to the documents folder
                 string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
 
                 if (selectedUser == "Company Group")
                 {
-                    // ✅ Group Chat
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
 
                     if (File.Exists(groupChatFile))
                     {
-                        // ✅ Read all lines and load them into the chat window
                         string[] lines = File.ReadAllLines(groupChatFile);
-
                         foreach (string line in lines)
                         {
                             if (!line.Contains("Chat Log for Group Chat") && !line.Contains("========================================="))
@@ -847,49 +838,22 @@ namespace CMPG315_Test
                             }
                         }
                     }
-                    else
-                    {
-                       
-                    }
                 }
                 else
                 {
-                    // ✅ Private Chat - User Perspective
-                    string chatFileFromMe = Path.Combine(documentsPath, $"{_username}_to_{selectedUser}.txt");
-                    string chatFileToMe = Path.Combine(documentsPath, $"{selectedUser}_to_{_username}.txt");
+                    // ✅ Private Chat
+                    string chatFile1 = Path.Combine(documentsPath, $"{_username}_to_{selectedUser}.txt");
+                    string chatFile2 = Path.Combine(documentsPath, $"{selectedUser}_to_{_username}.txt");
 
-                    // ✅ Read both files into a list
-                    List<string> chatLines = new List<string>();
+                    string finalFilePath = File.Exists(chatFile1) ? chatFile1 : chatFile2;
 
-                    if (File.Exists(chatFileFromMe))
+                    if (File.Exists(finalFilePath))
                     {
-                        string[] linesFromMe = File.ReadAllLines(chatFileFromMe);
-                        chatLines.AddRange(linesFromMe);
-                    }
-
-                    if (File.Exists(chatFileToMe))
-                    {
-                        string[] linesToMe = File.ReadAllLines(chatFileToMe);
-                        chatLines.AddRange(linesToMe);
-                    }
-
-                    // ✅ Sort the lines to maintain order
-                    chatLines.Sort();
-
-                    // ✅ Display the messages
-                    if (chatLines.Count > 0)
-                    {
-                        foreach (string line in chatLines)
+                        string[] lines = File.ReadAllLines(finalFilePath);
+                        foreach (string line in lines)
                         {
-                            if (!line.Contains("Chat Log between") && !line.Contains("========================================="))
-                            {
-                                txtbChat.AppendText(line + Environment.NewLine);
-                            }
+                            txtbChat.AppendText(line + Environment.NewLine);
                         }
-                    }
-                    else
-                    {
-                        
                     }
                 }
             }
