@@ -717,8 +717,8 @@ namespace CMPG315_Test
                 else
                 {
                     // ✅ For private messages, check which file exists or create one
-                    string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}to{receiver}.txt");
-                    string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}to{sender}.txt");
+                    string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}_to_{receiver}.txt");
+                    string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}_to_{sender}.txt");
 
                     string finalFilePath = File.Exists(senderToReceiverFile) ? senderToReceiverFile : receiverToSenderFile;
 
