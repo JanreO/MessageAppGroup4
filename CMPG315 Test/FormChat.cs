@@ -716,21 +716,34 @@ namespace CMPG315_Test
                 }
                 else
                 {
-                    // ✅ For private messages, check which file exists or create one
-                    string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}_to_{receiver}.txt");
-                    string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}_to_{sender}.txt");
+                    // ✅ For private messages, check if either orientation exists
+                    string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}to{receiver}.txt");
+                    string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}to{sender}.txt");
 
-                    string finalFilePath = File.Exists(senderToReceiverFile) ? senderToReceiverFile : receiverToSenderFile;
+                    string finalFilePath = null;
 
-                    // ✅ If neither exists, create one with the default name
-                    if (finalFilePath == receiverToSenderFile && !File.Exists(receiverToSenderFile))
+                    // ✅ Find the correct existing chat file, no creation
+                    if (File.Exists(senderToReceiverFile))
                     {
                         finalFilePath = senderToReceiverFile;
                     }
-
-                    using (StreamWriter writer = new StreamWriter(finalFilePath, append: true))
+                    else if (File.Exists(receiverToSenderFile))
                     {
-                        writer.WriteLine($"{sender}: {message}");
+                        finalFilePath = receiverToSenderFile;
+                    }
+
+                    // ✅ Only append if the file exists
+                    if (finalFilePath != null)
+                    {
+                        using (StreamWriter writer = new StreamWriter(finalFilePath, append: true))
+                        {
+                            writer.WriteLine($"{sender}: {message}");
+                        }
+                    }
+                    else
+                    {
+                        // Optional: You can log an error or display a message if neither file exists
+                        MessageBox.Show("Private chat file does not exist between users. Message not saved.");
                     }
                 }
             }
