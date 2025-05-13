@@ -8,6 +8,7 @@ namespace CMPG315_Test
 {
     public partial class FormConnection : Form
     {
+        private bool _formLoaded = false;
         public FormConnection()
         {
             InitializeComponent();
@@ -18,6 +19,10 @@ namespace CMPG315_Test
         {
             ToggleMode();
             rbClient.Checked = true;
+            _formLoaded = true;
+
+            txtbUsername.Leave += TryAutoConnect;
+            txtbIP.Leave += TryAutoConnect;
         }
 
         private void ToggleMode()
@@ -122,6 +127,55 @@ namespace CMPG315_Test
             catch
             {
                 return false;
+            }
+        }
+
+        private void TryAutoConnect(object? sender, EventArgs e)
+        {
+            if (!_formLoaded) return;
+
+            string username = txtbUsername.Text.Trim();
+            string ip = txtbIP.Text.Trim();
+            int port = int.TryParse(txtbPort.Text, out int parsedPort) ? parsedPort : 8080;
+
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(ip))
+                return;
+
+            if (rbClient.Checked)
+            {
+                new Thread(() =>
+                {
+                    while (true)
+                    {
+                        bool isOnline = IsServerAvailable(ip, port);
+                        if (isOnline)
+                        {
+                            try
+                            {
+                                TcpClient client = new TcpClient();
+                                client.Connect(ip, port);
+                                NetworkStream stream = client.GetStream();
+                                byte[] buffer = Encoding.UTF8.GetBytes(username);
+                                stream.Write(buffer, 0, buffer.Length);
+
+                                Invoke(() =>
+                                {
+                                    FormChat chatForm = new FormChat(client, username, ip, port, isOnline);
+                                    chatForm.Show();
+                                    this.Hide();
+                                });
+
+                                break;
+                            }
+                            catch
+                            {
+                                
+                            }
+                        }
+                        Thread.Sleep(3000);
+                    }
+                })
+                { IsBackground = true }.Start();
             }
         }
     }

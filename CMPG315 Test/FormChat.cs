@@ -171,9 +171,16 @@ namespace CMPG315_Test
                             else
                             {
                                 _syncContext.Post(_ =>
-                                {
+{
                                     txtbChat.AppendText(message + Environment.NewLine);
-                                }, null);
+
+                                    if (ShouldNotify())
+                                    {
+                                        notification.BalloonTipTitle = "New Message";
+                                        notification.BalloonTipText = message.Length > 100 ? message.Substring(0, 100) + "..." : message;
+                                        notification.ShowBalloonTip(3000); // duration in ms
+                                    }
+                                }, null);
                             }
                         }
                     }
@@ -579,7 +586,7 @@ namespace CMPG315_Test
                 _connectedClients.Remove(client);
 
                 string timestamp = DateTime.Now.ToString("HH:mm");
-                string leftMessage = $"[{timestamp}] {username} has left the chat.";
+                string leftMessage = $"{username} has left the chat.";
 
                 _syncContext.Post(_ =>
                 {
@@ -604,9 +611,14 @@ namespace CMPG315_Test
             }
         }
 
-        private void Reconnect_Click(object sender, EventArgs e)
+        private void txtbChat_TextChanged(object sender, EventArgs e)
         {
 
+        }
+
+        private bool ShouldNotify()
+        {
+            return this.WindowState == FormWindowState.Minimized || !this.Focused;
         }
     }
 }
