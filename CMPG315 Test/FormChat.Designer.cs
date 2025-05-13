@@ -28,16 +28,14 @@
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             label2 = new Label();
             lblConnectionStatus = new Label();
             txtbChat = new RichTextBox();
             txtbText = new RichTextBox();
             btnSend = new Button();
             lstUsers = new ListBox();
-            label1 = new Label();
-            lblChatSelected = new Label();
-            dgvPrivateData = new DataGridView();
-            ((System.ComponentModel.ISupportInitialize)dgvPrivateData).BeginInit();
+            notifyIcon1 = new NotifyIcon(components);
             SuspendLayout();
             // 
             // label2
@@ -64,7 +62,7 @@
             // 
             txtbChat.Location = new Point(12, 12);
             txtbChat.Name = "txtbChat";
-            txtbChat.Size = new Size(633, 282);
+            txtbChat.Size = new Size(633, 554);
             txtbChat.TabIndex = 4;
             txtbChat.Text = "";
             // 
@@ -90,47 +88,21 @@
             // 
             lstUsers.FormattingEnabled = true;
             lstUsers.ItemHeight = 15;
-            lstUsers.Location = new Point(651, 67);
+            lstUsers.Location = new Point(651, 37);
             lstUsers.Name = "lstUsers";
-            lstUsers.Size = new Size(137, 499);
+            lstUsers.Size = new Size(137, 529);
             lstUsers.TabIndex = 7;
             lstUsers.SelectedIndexChanged += lstUsers_SelectedIndexChanged;
             // 
-            // label1
+            // notifyIcon1
             // 
-            label1.AutoSize = true;
-            label1.Location = new Point(651, 34);
-            label1.Name = "label1";
-            label1.Size = new Size(82, 15);
-            label1.TabIndex = 8;
-            label1.Text = "Chat Selected:";
-            // 
-            // lblChatSelected
-            // 
-            lblChatSelected.AutoSize = true;
-            lblChatSelected.Location = new Point(651, 49);
-            lblChatSelected.Name = "lblChatSelected";
-            lblChatSelected.Size = new Size(38, 15);
-            lblChatSelected.TabIndex = 9;
-            lblChatSelected.Text = "label3";
-            // 
-            // dgvPrivateData
-            // 
-            dgvPrivateData.AllowUserToAddRows = false;
-            dgvPrivateData.AllowUserToDeleteRows = false;
-            dgvPrivateData.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvPrivateData.Location = new Point(12, 300);
-            dgvPrivateData.Name = "dgvPrivateData";
-            dgvPrivateData.Size = new Size(633, 266);
-            dgvPrivateData.TabIndex = 10;
+            notifyIcon1.Text = "notifyIcon1";
+            notifyIcon1.Visible = true;
             // 
             // FormChat
             // 
             AutoScaleMode = AutoScaleMode.None;
             ClientSize = new Size(800, 616);
-            Controls.Add(dgvPrivateData);
-            Controls.Add(lblChatSelected);
-            Controls.Add(label1);
             Controls.Add(lstUsers);
             Controls.Add(btnSend);
             Controls.Add(txtbText);
@@ -143,7 +115,6 @@
             StartPosition = FormStartPosition.CenterScreen;
             Text = "FormChat";
             Load += FormChat_Load;
-            ((System.ComponentModel.ISupportInitialize)dgvPrivateData).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -155,8 +126,6 @@
         private RichTextBox txtbText;
         private Button btnSend;
         private ListBox lstUsers;
-        private Label label1;
-        private Label lblChatSelected;
-        private DataGridView dgvPrivateData;
+        private NotifyIcon notifyIcon1;
     }
 }
