@@ -54,7 +54,7 @@
             lblConnectionStatus.AutoSize = true;
             lblConnectionStatus.BackColor = SystemColors.Menu;
             lblConnectionStatus.ForeColor = Color.Red;
-            lblConnectionStatus.Location = new Point(729, 12);
+            lblConnectionStatus.Location = new Point(730, 12);
             lblConnectionStatus.Name = "lblConnectionStatus";
             lblConnectionStatus.Size = new Size(43, 15);
             lblConnectionStatus.TabIndex = 3;
@@ -64,13 +64,13 @@
             // 
             txtbChat.Location = new Point(12, 12);
             txtbChat.Name = "txtbChat";
-            txtbChat.Size = new Size(633, 554);
+            txtbChat.Size = new Size(633, 580);
             txtbChat.TabIndex = 4;
             txtbChat.Text = "";
             // 
             // txtbText
             // 
-            txtbText.Location = new Point(12, 572);
+            txtbText.Location = new Point(12, 598);
             txtbText.Name = "txtbText";
             txtbText.Size = new Size(633, 30);
             txtbText.TabIndex = 5;
@@ -78,7 +78,7 @@
             // 
             // btnSend
             // 
-            btnSend.Location = new Point(651, 572);
+            btnSend.Location = new Point(651, 598);
             btnSend.Name = "btnSend";
             btnSend.Size = new Size(137, 30);
             btnSend.TabIndex = 6;
@@ -90,9 +90,9 @@
             // 
             lstUsers.FormattingEnabled = true;
             lstUsers.ItemHeight = 15;
-            lstUsers.Location = new Point(651, 82);
+            lstUsers.Location = new Point(651, 52);
             lstUsers.Name = "lstUsers";
-            lstUsers.Size = new Size(137, 484);
+            lstUsers.Size = new Size(137, 544);
             lstUsers.TabIndex = 7;
             lstUsers.SelectedIndexChanged += lstUsers_SelectedIndexChanged;
             // 
@@ -105,7 +105,7 @@
             // 
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            label1.Location = new Point(668, 64);
+            label1.Location = new Point(670, 34);
             label1.Name = "label1";
             label1.Size = new Size(104, 15);
             label1.TabIndex = 8;
@@ -114,7 +114,7 @@
             // FormChat
             // 
             AutoScaleMode = AutoScaleMode.None;
-            ClientSize = new Size(800, 616);
+            ClientSize = new Size(800, 640);
             Controls.Add(lblConnectionStatus);
             Controls.Add(label1);
             Controls.Add(lstUsers);

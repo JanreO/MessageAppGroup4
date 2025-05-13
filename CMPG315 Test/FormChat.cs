@@ -18,18 +18,21 @@ namespace CMPG315_Test
         private readonly bool _isServer;
         private readonly int _serverPort;
         private bool _serverRunning = false;
-
+        private readonly string _serverIP;
         private readonly List<TcpClient> _connectedClients = new();
         private readonly Dictionary<string, TcpClient> _clientConnections = new();
         private readonly SynchronizationContext _syncContext = SynchronizationContext.Current;
 
         private string _currentChat = "Company Group";
 
-        public FormChat(TcpClient client, string username, bool isOnline)
+        public FormChat(TcpClient client, string username, string serverIP, int serverPort, bool isOnline)
         {
             InitializeComponent();
+            this.Text = "Company Group Chat";
             _client = client;
             _username = username;
+            _serverIP = serverIP;
+            _serverPort = serverPort;
             _isServer = false;
 
             lblConnectionStatus.Text = isOnline ? "Online" : "Offline";
@@ -38,12 +41,14 @@ namespace CMPG315_Test
             _listenerThread = new Thread(ListenForServerMessages) { IsBackground = true };
             _listenerThread.Start();
             this.FormClosing += FormChat_FormClosing;
+
+
         }
 
         public FormChat(bool isServer, int port, string username, bool isOnline)
         {
             InitializeComponent();
-
+            this.Text = "Company Group Chat";
 
             _isServer = isServer;
             _serverPort = port;
@@ -174,9 +179,14 @@ namespace CMPG315_Test
                     }
                 }
             }
-            catch (IOException ioEx)
+            catch (IOException)
             {
-                MessageBox.Show($"Connection lost: {ioEx.Message}");
+                // Server forcibly closed the connection
+                _syncContext.Post(_ =>
+                {
+                    lblConnectionStatus.Text = "Offline";
+                    lblConnectionStatus.ForeColor = Color.Red;
+                }, null);
             }
             catch (Exception ex)
             {
@@ -184,11 +194,10 @@ namespace CMPG315_Test
                 {
                     lblConnectionStatus.Text = "Offline";
                     lblConnectionStatus.ForeColor = Color.Red;
-                    MessageBox.Show("Error receiving message: " + ex.Message);
+                    // Optionally log to file or silent fail, no MessageBox
                 }, null);
             }
         }
-
         private void btnSend_Click(object sender, EventArgs e)
         {
             string message = txtbText.Text.Trim();
@@ -593,6 +602,11 @@ namespace CMPG315_Test
 
                 BroadcastToAllClients($"USER_LEFT:{username}");
             }
+        }
+
+        private void Reconnect_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
