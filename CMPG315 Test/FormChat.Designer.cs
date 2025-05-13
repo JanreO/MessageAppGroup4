@@ -36,6 +36,8 @@
             lstUsers = new ListBox();
             label1 = new Label();
             lblChatSelected = new Label();
+            dgvPrivateData = new DataGridView();
+            ((System.ComponentModel.ISupportInitialize)dgvPrivateData).BeginInit();
             SuspendLayout();
             // 
             // label2
@@ -62,7 +64,7 @@
             // 
             txtbChat.Location = new Point(12, 12);
             txtbChat.Name = "txtbChat";
-            txtbChat.Size = new Size(633, 554);
+            txtbChat.Size = new Size(633, 282);
             txtbChat.TabIndex = 4;
             txtbChat.Text = "";
             // 
@@ -112,10 +114,21 @@
             lblChatSelected.TabIndex = 9;
             lblChatSelected.Text = "label3";
             // 
+            // dgvPrivateData
+            // 
+            dgvPrivateData.AllowUserToAddRows = false;
+            dgvPrivateData.AllowUserToDeleteRows = false;
+            dgvPrivateData.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dgvPrivateData.Location = new Point(12, 300);
+            dgvPrivateData.Name = "dgvPrivateData";
+            dgvPrivateData.Size = new Size(633, 266);
+            dgvPrivateData.TabIndex = 10;
+            // 
             // FormChat
             // 
             AutoScaleMode = AutoScaleMode.None;
-            ClientSize = new Size(800, 615);
+            ClientSize = new Size(800, 616);
+            Controls.Add(dgvPrivateData);
             Controls.Add(lblChatSelected);
             Controls.Add(label1);
             Controls.Add(lstUsers);
@@ -130,6 +143,7 @@
             StartPosition = FormStartPosition.CenterScreen;
             Text = "FormChat";
             Load += FormChat_Load;
+            ((System.ComponentModel.ISupportInitialize)dgvPrivateData).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -143,5 +157,6 @@
         private ListBox lstUsers;
         private Label label1;
         private Label lblChatSelected;
+        private DataGridView dgvPrivateData;
     }
 }

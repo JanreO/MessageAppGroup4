@@ -114,13 +114,21 @@ namespace CMPG315_Test
 
                 if (Directory.Exists(documentsPath))
                 {
-                    var files = Directory.GetFiles(documentsPath, "*.txt");
+                    var files = new List<string>
+            {
+                Path.Combine(documentsPath, "Company_Group.txt"),
+                Path.Combine(documentsPath, "PrivateChatLog.txt")
+            };
+
                     foreach (var file in files)
                     {
                         try
                         {
-                            File.Delete(file);
-                            Console.WriteLine($"Deleted file: {file}");
+                            if (File.Exists(file))
+                            {
+                                File.Delete(file);
+                                Console.WriteLine($"Deleted file: {file}");
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -152,12 +160,58 @@ namespace CMPG315_Test
                             if (message.StartsWith("USER_JOINED:"))
                             {
                                 string username = message.Replace("USER_JOINED:", "").Trim();
-                                _syncContext.Post(_ =>
-                                {
+                                _syncContext.Post(_=>
+    {
                                     if (username != _username && !lstUsers.Items.Contains(username))
                                     {
                                         lstUsers.Items.Add(username);
-                                        txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
+                                    }
+
+                                    // Always regenerate matrix including current user
+                                    List<string> matrixUsers = new List<string>();
+                                    foreach (var item in lstUsers.Items)
+                                    {
+                                        if (item.ToString() != "Company Group")
+                                            matrixUsers.Add(item.ToString());
+                                    }
+
+                                    if (!matrixUsers.Contains(_username))
+                                        matrixUsers.Add(_username);
+
+                                    InitializePrivateMatrix(matrixUsers);
+                                }, null);
+                            }
+                            else if (message.StartsWith("[Private from "))
+                            {
+                                string sender = message.Substring(14, message.IndexOf("]:") - 14);
+                                string content = message.Substring(message.IndexOf("]:") + 2).Trim();
+                                string formatted = $"[{sender}]: {content}\n";
+
+                                // Debug message to confirm receipt
+                                MessageBox.Show($"Received private message from {sender}: {content}");
+
+                                _syncContext.Post(_=>
+    {
+                                    if (dgvPrivateData.Columns.Contains(sender) && dgvPrivateData.Rows
+                                        .Cast<DataGridViewRow>().Any(r => r.HeaderCell.Value?.ToString() == _username))
+                                    {
+                                        int rowIndex = dgvPrivateData.Rows
+                                            .Cast<DataGridViewRow>()
+                                            .First(r => r.HeaderCell.Value.ToString() == _username).Index;
+
+                                        dgvPrivateData[sender, rowIndex].Value =
+                                            (dgvPrivateData[sender, rowIndex].Value?.ToString() ?? "") + formatted;
+                                    }
+
+                                    if (dgvPrivateData.Columns.Contains(_username) && dgvPrivateData.Rows
+                                        .Cast<DataGridViewRow>().Any(r => r.HeaderCell.Value?.ToString() == sender))
+                                    {
+                                        int senderRow = dgvPrivateData.Rows
+                                            .Cast<DataGridViewRow>()
+                                            .First(r => r.HeaderCell.Value.ToString() == sender).Index;
+
+                                        dgvPrivateData[_username, senderRow].Value =
+                                            (dgvPrivateData[_username, senderRow].Value?.ToString() ?? "") + formatted;
                                     }
                                 }, null);
                             }
@@ -173,42 +227,30 @@ namespace CMPG315_Test
                                     }
                                 }, null);
                             }
-                            else if (message.StartsWith("PRIVATE_LOG::"))
-                            {
-                                string logMessage = message.Replace("PRIVATE_LOG::", "");
-                                _syncContext.Post(_=>
-{
-                                    txtbChat.AppendText(logMessage + Environment.NewLine);
-                                }, null);
-                            }
                             else if (message.StartsWith("USER_LIST:"))
                             {
                                 string[] users = message.Replace("USER_LIST:", "").Split(',');
 
-                                _syncContext.Post(_ =>
-                                {
-                                    lstUsers.Items.Clear();
-                                    lstUsers.Items.Add("Company Group");
-
+                                _syncContext.Post(_=>
+    {
                                     foreach (var user in users)
                                     {
                                         if (!string.IsNullOrWhiteSpace(user) && user != _username)
                                         {
                                             if (!lstUsers.Items.Contains(user))
-                                            {
                                                 lstUsers.Items.Add(user);
-                                            }
                                         }
                                     }
 
-                                    // ✅ Remove empty indexes
-                                    for (int i = lstUsers.Items.Count - 1; i >= 0; i--)
-                                    {
-                                        if (string.IsNullOrWhiteSpace(lstUsers.Items[i].ToString()))
-                                        {
-                                            lstUsers.Items.RemoveAt(i);
-                                        }
-                                    }
+                                    // Include self in matrix generation
+                                    List<string> matrixUsers = new List<string>();
+                                    foreach (var item in lstUsers.Items)
+                                        matrixUsers.Add(item.ToString());
+
+                                    if (!matrixUsers.Contains(_username))
+                                        matrixUsers.Add(_username);
+
+                                    InitializePrivateMatrix(matrixUsers);
                                 }, null);
                             }
                             else
@@ -228,7 +270,7 @@ namespace CMPG315_Test
             }
             catch (Exception ex)
             {
-                _syncContext.Post(_ =>
+                _syncContext.Post(_=>
                 {
                     lblConnectionStatus.Text = "Offline";
                     lblConnectionStatus.ForeColor = Color.Red;
@@ -236,9 +278,6 @@ namespace CMPG315_Test
                 }, null);
             }
         }
-
-
-
         // Host constructor
         public FormChat(bool isServer, int port, string username, bool isOnline)
         {
@@ -366,7 +405,7 @@ namespace CMPG315_Test
                 Directory.CreateDirectory(documentsPath);
             }
 
-            // ✅ Create a single group chat log file
+            // Only create group chat log file
             string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
             if (!File.Exists(groupChatFile))
             {
@@ -376,28 +415,8 @@ namespace CMPG315_Test
                     writer.WriteLine("=========================================");
                 }
             }
-
-            // ✅ Create private chat logs only for individual users
-            foreach (var existingUser in _clientUsernames.Values)
-            {
-                if (existingUser != newUser)
-                {
-                    // Determine the chat file name
-                    string privateChatFile1 = Path.Combine(documentsPath, $"{newUser}_to_{existingUser}.txt");
-                    string privateChatFile2 = Path.Combine(documentsPath, $"{existingUser}_to_{newUser}.txt");
-
-                    // Create the chat file if neither exists
-                    if (!File.Exists(privateChatFile1) && !File.Exists(privateChatFile2))
-                    {
-                        using (StreamWriter writer = new StreamWriter(privateChatFile1))
-                        {
-                            writer.WriteLine($"Chat Log between {newUser} and {existingUser}");
-                            writer.WriteLine("=========================================");
-                        }
-                    }
-                }
-            }
         }
+
 
         private void SendFullUserList(TcpClient client)
         {
@@ -598,7 +617,6 @@ namespace CMPG315_Test
                 return;
             }
 
-            // ✅ Check if a chat is selected
             if (lstUsers.SelectedItem == null)
             {
                 MessageBox.Show("Please select a chat first.");
@@ -614,28 +632,46 @@ namespace CMPG315_Test
                     {
                         string formattedMessage;
 
-                        // ✅ Determine if it's a Group or Private Message
                         if (messageType == "Group")
                         {
-                            // Format for Group Message
                             formattedMessage = $"GROUP::{_username}::{message}";
                         }
                         else
                         {
-                            // Format for Private Message
                             string targetUser = lstUsers.SelectedItem.ToString();
                             formattedMessage = $"PRIVATE::{_username}::{targetUser}::{message}";
                         }
 
-                        // ✅ Send the message to the server
                         writer.WriteLine(formattedMessage);
                         writer.Flush();
                     }
 
-                    // ✅ Display on sender's chat window
-                    txtbChat.AppendText($"[{_username}]: {message}" + Environment.NewLine);
+                    if (messageType == "Private")
+                    {
+                        string targetUser = lstUsers.SelectedItem.ToString();
+                        string formatted = $"[{_username}]: {message}\n";
 
-                    // ✅ Clear the text box after sending
+                        int senderRow = dgvPrivateData.Rows
+                            .Cast<DataGridViewRow>()
+                            .First(r => r.HeaderCell.Value.ToString() == _username).Index;
+                        int receiverRow = dgvPrivateData.Rows
+                            .Cast<DataGridViewRow>()
+                            .First(r => r.HeaderCell.Value.ToString() == targetUser).Index;
+
+                        if (dgvPrivateData.Columns.Contains(targetUser) && senderRow >= 0 && senderRow < dgvPrivateData.Rows.Count)
+                        {
+                            var senderCell = dgvPrivateData[targetUser, senderRow];
+                            senderCell.Value = (senderCell?.Value?.ToString() ?? "") + formatted;
+                        }
+
+                        if (dgvPrivateData.Columns.Contains(_username) && receiverRow >= 0 && receiverRow < dgvPrivateData.Rows.Count)
+                        {
+                            var receiverCell = dgvPrivateData[_username, receiverRow];
+                            receiverCell.Value = (receiverCell?.Value?.ToString() ?? "") + formatted;
+                        }
+                    }
+
+                    txtbChat.AppendText($"[{_username}]: {message}" + Environment.NewLine);
                     txtbText.Clear();
                 }
                 catch (Exception ex)
@@ -660,12 +696,19 @@ namespace CMPG315_Test
                     string sender = parts[1];
                     string content = parts[2];
 
-                    // ✅ Save the group message
-                    ServerSaveMessage("Company Group", sender, content);
+                    // Save the group message to file
+                    string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+                    string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
+                    if (!Directory.Exists(documentsPath))
+                        Directory.CreateDirectory(documentsPath);
 
-                    // ✅ Broadcast to all clients
+                    using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
+                    {
+                        writer.WriteLine($"[{sender}]: {content}");
+                    }
+
+                    // Broadcast to all clients except sender
                     ServerBroadcastMessage($"[{sender}]: {content}", senderClient, true);
-
                 }
                 else if (message.StartsWith("PRIVATE::"))
                 {
@@ -675,16 +718,16 @@ namespace CMPG315_Test
                     string receiver = parts[2];
                     string content = parts[3];
 
-                    // ✅ Save the private message
-                    ServerSaveMessage(receiver, sender, content);
-
-                    // ✅ Broadcast to the specific client
+                    // Find the intended recipient's client
                     var targetClient = _connectedClients.FirstOrDefault(c => _clientUsernames[c] == receiver);
+
                     if (targetClient != null)
                     {
+                        // Send to the receiver
                         ServerBroadcastMessage($"[Private from {sender}]: {content}", targetClient, false);
                     }
                 }
+                // REQUEST_HISTORY can be ignored/removed since private logs aren't stored
             }
             catch (Exception ex)
             {
@@ -692,76 +735,7 @@ namespace CMPG315_Test
             }
         }
 
-        private void ServerSaveMessage(string receiver, string sender, string message)
-        {
-            try
-            {
-                string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
-
-                if (!Directory.Exists(documentsPath))
-                {
-                    Directory.CreateDirectory(documentsPath);
-                }
-
-                if (receiver == "Company Group")
-                {
-                    // ✅ Save to the Group Chat log
-                    string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
-
-                    // ✅ Append the message
-                    using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
-                    {
-                        writer.WriteLine($"[{sender}]: {message}");
-                    }
-                }
-                else
-                {
-                    // ✅ For private messages, check if either orientation exists
-                    string senderToReceiverFile = Path.Combine(documentsPath, $"{sender}_to_{receiver}.txt");
-                    string receiverToSenderFile = Path.Combine(documentsPath, $"{receiver}_to_{sender}.txt");
-
-                    string finalFilePath = null;
-
-                    // ✅ Find the correct existing chat file, no creation
-                    if (File.Exists(senderToReceiverFile))
-                    {
-                        finalFilePath = senderToReceiverFile;
-                    }
-                    else if (File.Exists(receiverToSenderFile))
-                    {
-                        finalFilePath = receiverToSenderFile;
-                    }
-
-                    // ✅ Only append if the file exists
-                    if (finalFilePath != null)
-                    {
-                        using (StreamWriter writer = new StreamWriter(finalFilePath, append: true))
-                        {
-                            writer.WriteLine($"{sender}: {message}");
-                        }
-                    }
-                    else
-                    {
-                        // Optional: You can log an error or display a message if neither file exists
-                        MessageBox.Show("Private chat file does not exist between users. Message not saved.");
-                    }
-                }
-            }
-            catch (IOException ioEx)
-            {
-                MessageBox.Show($"IO Error while storing message: {ioEx.Message}");
-            }
-            catch (UnauthorizedAccessException uaEx)
-            {
-                MessageBox.Show($"Access Denied: {uaEx.Message}");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to store message: {ex.Message}");
-            }
-        }
-
-        private void ServerBroadcastMessage(string message, TcpClient senderClient, bool isGroup)
+        private void ServerBroadcastMessage(string message, TcpClient targetClient, bool isGroup)
         {
             lock (_connectedClients)
             {
@@ -772,7 +746,7 @@ namespace CMPG315_Test
                     {
                         try
                         {
-                            if (client.Connected && client != senderClient) // ✅ Exclude the sender
+                            if (client.Connected && client != targetClient) // Exclude the sender
                             {
                                 NetworkStream stream = client.GetStream();
                                 using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
@@ -784,18 +758,18 @@ namespace CMPG315_Test
                         }
                         catch (Exception ex)
                         {
-                            MessageBox.Show($"Failed to send message to client: {ex.Message}");
+                            MessageBox.Show($"Failed to send group message: {ex.Message}");
                         }
                     }
                 }
                 else
                 {
-                    // Private Message: Only to the specific client
+                    // Private message: send only to the specified target client
                     try
                     {
-                        if (senderClient.Connected)
+                        if (targetClient.Connected)
                         {
-                            NetworkStream stream = senderClient.GetStream();
+                            NetworkStream stream = targetClient.GetStream();
                             using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
                             {
                                 writer.WriteLine(message);
@@ -815,16 +789,30 @@ namespace CMPG315_Test
         {
             if (lstUsers.SelectedItem != null)
             {
-                // ✅ Set the current chat to the selected item
                 _currentChat = lstUsers.SelectedItem.ToString();
                 messageType = _currentChat == "Company Group" ? "Group" : "Private";
-                lblChatSelected.Text = lstUsers.SelectedItem.ToString();
-
-                // ✅ Clear the current chat window
+                lblChatSelected.Text = _currentChat;
                 txtbChat.Clear();
 
-                // ✅ Load the history of the newly selected chat
-                LoadChatHistory(_currentChat);
+                if (messageType == "Group")
+                {
+                    LoadChatHistory(_currentChat);
+                }
+                else
+                {
+                    try
+                    {
+                        int row = dgvPrivateData.Rows
+                            .Cast<DataGridViewRow>()
+                            .First(r => r.HeaderCell.Value.ToString() == _username).Index;
+                        string content = dgvPrivateData[_currentChat, row].Value?.ToString() ?? "";
+                        txtbChat.AppendText(content);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to load private chat: {ex.Message}");
+                    }
+                }
             }
         }
 
@@ -832,12 +820,11 @@ namespace CMPG315_Test
         {
             try
             {
-                txtbChat.Clear();
-
-                string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+                txtbChat.Clear(); // ✅ Clear the chat window before loading
 
                 if (selectedUser == "Company Group")
                 {
+                    string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
 
                     if (File.Exists(groupChatFile))
@@ -849,23 +836,6 @@ namespace CMPG315_Test
                             {
                                 txtbChat.AppendText(line + Environment.NewLine);
                             }
-                        }
-                    }
-                }
-                else
-                {
-                    // ✅ Private Chat
-                    string chatFile1 = Path.Combine(documentsPath, $"{_username}_to_{selectedUser}.txt");
-                    string chatFile2 = Path.Combine(documentsPath, $"{selectedUser}_to_{_username}.txt");
-
-                    string finalFilePath = File.Exists(chatFile1) ? chatFile1 : chatFile2;
-
-                    if (File.Exists(finalFilePath))
-                    {
-                        string[] lines = File.ReadAllLines(finalFilePath);
-                        foreach (string line in lines)
-                        {
-                            txtbChat.AppendText(line + Environment.NewLine);
                         }
                     }
                 }
@@ -888,6 +858,32 @@ namespace CMPG315_Test
             // Load the chat history for the "Company Group"
             _currentChat = "Company Group";
             LoadChatHistory(_currentChat);
+        }
+
+        private void InitializePrivateMatrix(List<string> users)
+        {
+            // Filter out "Company Group" and duplicates
+            var filteredUsers = new HashSet<string>(users);
+            filteredUsers.Remove("Company Group");
+
+            dgvPrivateData.AllowUserToAddRows = false;
+            dgvPrivateData.Columns.Clear();
+            dgvPrivateData.Rows.Clear();
+
+            // Add columns for each user
+            foreach (var user in filteredUsers)
+            {
+                dgvPrivateData.Columns.Add(user, user);
+            }
+
+            // Add rows and set row headers for each user
+            foreach (var user in filteredUsers)
+            {
+                int rowIndex = dgvPrivateData.Rows.Add();
+                dgvPrivateData.Rows[rowIndex].HeaderCell.Value = user;
+            }
+
+            dgvPrivateData.AllowUserToAddRows = true;
         }
     }
 }
