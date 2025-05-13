@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace CMPG315_Test
 {
@@ -37,8 +38,6 @@ namespace CMPG315_Test
 
             _listenerThread = new Thread(ListenForServerMessages) { IsBackground = true };
             _listenerThread.Start();
-
-            txtbChat.AppendText("You joined the group chat." + Environment.NewLine);
             this.FormClosing += FormChat_FormClosing;
         }
 
@@ -194,7 +193,7 @@ namespace CMPG315_Test
         private void btnSend_Click(object sender, EventArgs e)
         {
             string message = txtbText.Text.Trim();
-
+            string timestamp = DateTime.Now.ToString("HH:mm");
             if (string.IsNullOrEmpty(message))
             {
                 MessageBox.Show("Message cannot be empty.");
@@ -213,7 +212,7 @@ namespace CMPG315_Test
                         writer.Flush();
                     }
 
-                    txtbChat.AppendText($"[{_username}]: {message}\n");
+                    txtbChat.AppendText($"[{timestamp} | {_username}]: {message}\n");
                     txtbText.Clear();
                 }
                 catch (Exception ex)
@@ -236,6 +235,9 @@ namespace CMPG315_Test
                     string[] parts = message.Split(new[] { "::" }, StringSplitOptions.None);
                     string sender = parts[1];
                     string content = parts[2];
+                    string timestamp = DateTime.Now.ToString("HH:mm");
+
+                    string formatted = $"[{timestamp} | {sender}]: {content}";
 
                     string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
@@ -244,10 +246,10 @@ namespace CMPG315_Test
 
                     using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
                     {
-                        writer.WriteLine($"[{sender}]: {content}");
+                        writer.WriteLine(formatted);
                     }
 
-                    ServerBroadcastMessage($"[{sender}]: {content}", senderClient);
+                    ServerBroadcastMessage(formatted, senderClient);
                 }
             }
             catch (Exception ex)
@@ -359,8 +361,6 @@ namespace CMPG315_Test
                     IsBackground = true
                 };
                 statusThread.Start();
-
-                MessageBox.Show($"Server started on Port: {_serverPort} and Status Port: {_serverPort + 1}");
             }
             catch (Exception ex)
             {
@@ -407,18 +407,37 @@ namespace CMPG315_Test
                         _clientConnections[username] = client;
                     }
 
+                    string timestamp = DateTime.Now.ToString("HH:mm");
+                    string joinMessage = $"{username} has joined the chat.";
+
+                    // Update server UI
                     _syncContext.Post(_ =>
                     {
                         if (!lstUsers.Items.Contains(username))
                         {
                             lstUsers.Items.Add(username);
-                            txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
+                            txtbChat.AppendText(joinMessage + Environment.NewLine);
                         }
                     }, null);
 
+                    // Save join message to chat log
+                    string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+                    string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
+                    if (!Directory.Exists(documentsPath))
+                        Directory.CreateDirectory(documentsPath);
+
+                    using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
+                    {
+                        writer.WriteLine(joinMessage);
+                    }
+
+                    // Notify all other clients
                     BroadcastToAllClients($"USER_JOINED:{username}");
+
+                    // Send user list to the new client
                     SendFullUserList(client);
 
+                    // Start listening to this client's messages
                     Thread clientThread = new Thread(() => ListenForClientMessages(client))
                     {
                         IsBackground = true
@@ -557,22 +576,32 @@ namespace CMPG315_Test
                 _clientConnections.Remove(user.Key);
                 _connectedClients.Remove(client);
 
+                string timestamp = DateTime.Now.ToString("HH:mm");
+                string leftMessage = $"[{timestamp}] {username} has left the chat.";
+
                 _syncContext.Post(_ =>
                 {
                     if (lstUsers.Items.Contains(username))
                     {
                         lstUsers.Items.Remove(username);
-                        txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
+                        txtbChat.AppendText(leftMessage + Environment.NewLine);
                     }
                 }, null);
 
+                // Save to chat file
+                string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+                string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
+                if (!Directory.Exists(documentsPath))
+                    Directory.CreateDirectory(documentsPath);
+
+                using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
+                {
+                    writer.WriteLine(leftMessage);
+                }
+
+                // Broadcast to others
                 BroadcastToAllClients($"USER_LEFT:{username}");
             }
-        }
-
-        private void txtbChat_TextChanged(object sender, EventArgs e)
-        {
-
         }
     }
 }

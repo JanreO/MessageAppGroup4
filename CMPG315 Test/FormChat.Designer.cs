@@ -67,7 +67,6 @@
             txtbChat.Size = new Size(633, 554);
             txtbChat.TabIndex = 4;
             txtbChat.Text = "";
-            txtbChat.TextChanged += txtbChat_TextChanged;
             // 
             // txtbText
             // 

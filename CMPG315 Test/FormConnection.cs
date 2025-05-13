@@ -74,9 +74,6 @@ namespace CMPG315_Test
                         NetworkStream stream = client.GetStream();
                         byte[] buffer = Encoding.UTF8.GetBytes(username);
                         stream.Write(buffer, 0, buffer.Length);
-
-                        MessageBox.Show($"Connected successfully to {ip}:{port}");
-
                         FormChat chatForm = new FormChat(client, username, isOnline);
                         chatForm.Show();
                         this.Hide();
