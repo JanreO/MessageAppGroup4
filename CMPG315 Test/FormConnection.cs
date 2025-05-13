@@ -75,15 +75,14 @@ namespace CMPG315_Test
                         byte[] buffer = Encoding.UTF8.GetBytes(username);
                         stream.Write(buffer, 0, buffer.Length);
 
-                        MessageBox.Show($"Connected successfully to {ip}:{port}");
-
-                        FormChat chatForm = new FormChat(client, username, isOnline);
+                        FormChat chatForm = new FormChat(client, username, ip, port, isOnline);
                         chatForm.Show();
                         this.Hide();
                     }
                     else
                     {
                         MessageBox.Show($"Cannot connect to {ip}:{port}. The server is not running.");
+                        return;
                     }
                 }
                 catch (SocketException)

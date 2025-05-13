@@ -1,11 +1,11 @@
-﻿// Updated version with private messaging logic removed
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace CMPG315_Test
 {
@@ -18,18 +18,21 @@ namespace CMPG315_Test
         private readonly bool _isServer;
         private readonly int _serverPort;
         private bool _serverRunning = false;
-
+        private readonly string _serverIP;
         private readonly List<TcpClient> _connectedClients = new();
         private readonly Dictionary<string, TcpClient> _clientConnections = new();
         private readonly SynchronizationContext _syncContext = SynchronizationContext.Current;
 
         private string _currentChat = "Company Group";
 
-        public FormChat(TcpClient client, string username, bool isOnline)
+        public FormChat(TcpClient client, string username, string serverIP, int serverPort, bool isOnline)
         {
             InitializeComponent();
+            this.Text = "Company Group Chat";
             _client = client;
             _username = username;
+            _serverIP = serverIP;
+            _serverPort = serverPort;
             _isServer = false;
 
             lblConnectionStatus.Text = isOnline ? "Online" : "Offline";
@@ -37,15 +40,15 @@ namespace CMPG315_Test
 
             _listenerThread = new Thread(ListenForServerMessages) { IsBackground = true };
             _listenerThread.Start();
-
-            txtbChat.AppendText("You joined the group chat." + Environment.NewLine);
             this.FormClosing += FormChat_FormClosing;
+
+
         }
 
         public FormChat(bool isServer, int port, string username, bool isOnline)
         {
             InitializeComponent();
-
+            this.Text = "Company Group Chat";
 
             _isServer = isServer;
             _serverPort = port;
@@ -176,9 +179,14 @@ namespace CMPG315_Test
                     }
                 }
             }
-            catch (IOException ioEx)
+            catch (IOException)
             {
-                MessageBox.Show($"Connection lost: {ioEx.Message}");
+                // Server forcibly closed the connection
+                _syncContext.Post(_ =>
+                {
+                    lblConnectionStatus.Text = "Offline";
+                    lblConnectionStatus.ForeColor = Color.Red;
+                }, null);
             }
             catch (Exception ex)
             {
@@ -186,15 +194,14 @@ namespace CMPG315_Test
                 {
                     lblConnectionStatus.Text = "Offline";
                     lblConnectionStatus.ForeColor = Color.Red;
-                    MessageBox.Show("Error receiving message: " + ex.Message);
+                    // Optionally log to file or silent fail, no MessageBox
                 }, null);
             }
         }
-
         private void btnSend_Click(object sender, EventArgs e)
         {
             string message = txtbText.Text.Trim();
-
+            string timestamp = DateTime.Now.ToString("HH:mm");
             if (string.IsNullOrEmpty(message))
             {
                 MessageBox.Show("Message cannot be empty.");
@@ -213,7 +220,7 @@ namespace CMPG315_Test
                         writer.Flush();
                     }
 
-                    txtbChat.AppendText($"[{_username}]: {message}\n");
+                    txtbChat.AppendText($"[{timestamp} | {_username}]: {message}\n");
                     txtbText.Clear();
                 }
                 catch (Exception ex)
@@ -236,6 +243,9 @@ namespace CMPG315_Test
                     string[] parts = message.Split(new[] { "::" }, StringSplitOptions.None);
                     string sender = parts[1];
                     string content = parts[2];
+                    string timestamp = DateTime.Now.ToString("HH:mm");
+
+                    string formatted = $"[{timestamp} | {sender}]: {content}";
 
                     string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
@@ -244,10 +254,10 @@ namespace CMPG315_Test
 
                     using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
                     {
-                        writer.WriteLine($"[{sender}]: {content}");
+                        writer.WriteLine(formatted);
                     }
 
-                    ServerBroadcastMessage($"[{sender}]: {content}", senderClient);
+                    ServerBroadcastMessage(formatted, senderClient);
                 }
             }
             catch (Exception ex)
@@ -310,7 +320,20 @@ namespace CMPG315_Test
                         {
                             if (!line.Contains("Chat Log for Group Chat") && !line.Contains("========================================="))
                             {
-                                txtbChat.AppendText(line + Environment.NewLine);
+                                if (line.StartsWith($"[{_username}]"))
+                                {
+                                    txtbChat.SelectionStart = txtbChat.TextLength;
+                                    txtbChat.SelectionLength = 0;
+                                    txtbChat.SelectionFont = new Font(txtbChat.Font, FontStyle.Bold);
+                                    txtbChat.AppendText(line + Environment.NewLine);
+                                }
+                                else
+                                {
+                                    txtbChat.SelectionStart = txtbChat.TextLength;
+                                    txtbChat.SelectionLength = 0;
+                                    txtbChat.SelectionFont = new Font(txtbChat.Font, FontStyle.Regular);
+                                    txtbChat.AppendText(line + Environment.NewLine);
+                                }
                             }
                         }
                     }
@@ -346,8 +369,6 @@ namespace CMPG315_Test
                     IsBackground = true
                 };
                 statusThread.Start();
-
-                MessageBox.Show($"Server started on Port: {_serverPort} and Status Port: {_serverPort + 1}");
             }
             catch (Exception ex)
             {
@@ -394,17 +415,30 @@ namespace CMPG315_Test
                         _clientConnections[username] = client;
                     }
 
+                    string timestamp = DateTime.Now.ToString("HH:mm");
+                    string joinMessage = $"{username} has joined the chat.";
+
                     _syncContext.Post(_ =>
                     {
                         if (!lstUsers.Items.Contains(username))
                         {
                             lstUsers.Items.Add(username);
-                            txtbChat.AppendText($"{username} has joined the chat." + Environment.NewLine);
+                            txtbChat.AppendText(joinMessage + Environment.NewLine);
                         }
                     }, null);
 
+                    string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+                    string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
+                    if (!Directory.Exists(documentsPath))
+                        Directory.CreateDirectory(documentsPath);
+
+                    using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
+                    {
+                        writer.WriteLine(joinMessage);
+                    }
                     BroadcastToAllClients($"USER_JOINED:{username}");
                     SendFullUserList(client);
+
 
                     Thread clientThread = new Thread(() => ListenForClientMessages(client))
                     {
@@ -430,7 +464,7 @@ namespace CMPG315_Test
                 {
                     TcpClient statusClient = statusListener.AcceptTcpClient();
                     NetworkStream stream = statusClient.GetStream();
-                    byte[] response = Encoding.UTF8.GetBytes("1"); // Server is alive
+                    byte[] response = Encoding.UTF8.GetBytes("1");
                     stream.Write(response, 0, response.Length);
                     statusClient.Close();
                 }
@@ -544,18 +578,35 @@ namespace CMPG315_Test
                 _clientConnections.Remove(user.Key);
                 _connectedClients.Remove(client);
 
+                string timestamp = DateTime.Now.ToString("HH:mm");
+                string leftMessage = $"[{timestamp}] {username} has left the chat.";
+
                 _syncContext.Post(_ =>
                 {
                     if (lstUsers.Items.Contains(username))
                     {
                         lstUsers.Items.Remove(username);
-                        txtbChat.AppendText($"{username} has left the chat." + Environment.NewLine);
+                        txtbChat.AppendText(leftMessage + Environment.NewLine);
                     }
                 }, null);
+
+                string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
+                string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
+                if (!Directory.Exists(documentsPath))
+                    Directory.CreateDirectory(documentsPath);
+
+                using (StreamWriter writer = new StreamWriter(groupChatFile, append: true))
+                {
+                    writer.WriteLine(leftMessage);
+                }
 
                 BroadcastToAllClients($"USER_LEFT:{username}");
             }
         }
 
+        private void Reconnect_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }
