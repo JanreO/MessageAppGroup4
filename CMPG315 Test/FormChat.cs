@@ -310,7 +310,20 @@ namespace CMPG315_Test
                         {
                             if (!line.Contains("Chat Log for Group Chat") && !line.Contains("========================================="))
                             {
-                                txtbChat.AppendText(line + Environment.NewLine);
+                                if (line.StartsWith($"[{_username}]"))
+                                {
+                                    txtbChat.SelectionStart = txtbChat.TextLength;
+                                    txtbChat.SelectionLength = 0;
+                                    txtbChat.SelectionFont = new Font(txtbChat.Font, FontStyle.Bold);
+                                    txtbChat.AppendText(line + Environment.NewLine);
+                                }
+                                else
+                                {
+                                    txtbChat.SelectionStart = txtbChat.TextLength;
+                                    txtbChat.SelectionLength = 0;
+                                    txtbChat.SelectionFont = new Font(txtbChat.Font, FontStyle.Regular);
+                                    txtbChat.AppendText(line + Environment.NewLine);
+                                }
                             }
                         }
                     }
@@ -557,5 +570,9 @@ namespace CMPG315_Test
             }
         }
 
+        private void txtbChat_TextChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 }

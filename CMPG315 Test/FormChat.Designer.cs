@@ -36,14 +36,16 @@
             btnSend = new Button();
             lstUsers = new ListBox();
             notifyIcon1 = new NotifyIcon(components);
+            label1 = new Label();
             SuspendLayout();
             // 
             // label2
             // 
             label2.AutoSize = true;
+            label2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             label2.Location = new Point(651, 12);
             label2.Name = "label2";
-            label2.Size = new Size(72, 15);
+            label2.Size = new Size(73, 15);
             label2.TabIndex = 2;
             label2.Text = "Connection:";
             // 
@@ -65,6 +67,7 @@
             txtbChat.Size = new Size(633, 554);
             txtbChat.TabIndex = 4;
             txtbChat.Text = "";
+            txtbChat.TextChanged += txtbChat_TextChanged;
             // 
             // txtbText
             // 
@@ -88,9 +91,9 @@
             // 
             lstUsers.FormattingEnabled = true;
             lstUsers.ItemHeight = 15;
-            lstUsers.Location = new Point(651, 37);
+            lstUsers.Location = new Point(651, 82);
             lstUsers.Name = "lstUsers";
-            lstUsers.Size = new Size(137, 529);
+            lstUsers.Size = new Size(137, 484);
             lstUsers.TabIndex = 7;
             lstUsers.SelectedIndexChanged += lstUsers_SelectedIndexChanged;
             // 
@@ -99,15 +102,26 @@
             notifyIcon1.Text = "notifyIcon1";
             notifyIcon1.Visible = true;
             // 
+            // label1
+            // 
+            label1.AutoSize = true;
+            label1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            label1.Location = new Point(668, 64);
+            label1.Name = "label1";
+            label1.Size = new Size(104, 15);
+            label1.TabIndex = 8;
+            label1.Text = "Users Connected:";
+            // 
             // FormChat
             // 
             AutoScaleMode = AutoScaleMode.None;
             ClientSize = new Size(800, 616);
+            Controls.Add(lblConnectionStatus);
+            Controls.Add(label1);
             Controls.Add(lstUsers);
             Controls.Add(btnSend);
             Controls.Add(txtbText);
             Controls.Add(txtbChat);
-            Controls.Add(lblConnectionStatus);
             Controls.Add(label2);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -127,5 +141,6 @@
         private Button btnSend;
         private ListBox lstUsers;
         private NotifyIcon notifyIcon1;
+        private Label label1;
     }
 }
