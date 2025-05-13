@@ -1,5 +1,4 @@
-﻿// Updated version with private messaging logic removed
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -410,7 +409,6 @@ namespace CMPG315_Test
                     string timestamp = DateTime.Now.ToString("HH:mm");
                     string joinMessage = $"{username} has joined the chat.";
 
-                    // Update server UI
                     _syncContext.Post(_ =>
                     {
                         if (!lstUsers.Items.Contains(username))
@@ -420,7 +418,6 @@ namespace CMPG315_Test
                         }
                     }, null);
 
-                    // Save join message to chat log
                     string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
                     string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
                     if (!Directory.Exists(documentsPath))
@@ -430,14 +427,10 @@ namespace CMPG315_Test
                     {
                         writer.WriteLine(joinMessage);
                     }
-
-                    // Notify all other clients
                     BroadcastToAllClients($"USER_JOINED:{username}");
-
-                    // Send user list to the new client
                     SendFullUserList(client);
 
-                    // Start listening to this client's messages
+
                     Thread clientThread = new Thread(() => ListenForClientMessages(client))
                     {
                         IsBackground = true
@@ -462,7 +455,7 @@ namespace CMPG315_Test
                 {
                     TcpClient statusClient = statusListener.AcceptTcpClient();
                     NetworkStream stream = statusClient.GetStream();
-                    byte[] response = Encoding.UTF8.GetBytes("1"); // Server is alive
+                    byte[] response = Encoding.UTF8.GetBytes("1");
                     stream.Write(response, 0, response.Length);
                     statusClient.Close();
                 }
@@ -588,7 +581,6 @@ namespace CMPG315_Test
                     }
                 }, null);
 
-                // Save to chat file
                 string documentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CMPG315_Test");
                 string groupChatFile = Path.Combine(documentsPath, "Company_Group.txt");
                 if (!Directory.Exists(documentsPath))
@@ -599,7 +591,6 @@ namespace CMPG315_Test
                     writer.WriteLine(leftMessage);
                 }
 
-                // Broadcast to others
                 BroadcastToAllClients($"USER_LEFT:{username}");
             }
         }
