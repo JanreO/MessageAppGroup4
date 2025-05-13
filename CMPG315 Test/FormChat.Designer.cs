@@ -35,7 +35,7 @@
             txtbText = new RichTextBox();
             btnSend = new Button();
             lstUsers = new ListBox();
-            notifyIcon1 = new NotifyIcon(components);
+            notification = new NotifyIcon(components);
             label1 = new Label();
             SuspendLayout();
             // 
@@ -67,6 +67,7 @@
             txtbChat.Size = new Size(633, 580);
             txtbChat.TabIndex = 4;
             txtbChat.Text = "";
+            txtbChat.TextChanged += txtbChat_TextChanged;
             // 
             // txtbText
             // 
@@ -96,10 +97,10 @@
             lstUsers.TabIndex = 7;
             lstUsers.SelectedIndexChanged += lstUsers_SelectedIndexChanged;
             // 
-            // notifyIcon1
+            // notification
             // 
-            notifyIcon1.Text = "notifyIcon1";
-            notifyIcon1.Visible = true;
+            notification.Text = "notifyIcon1";
+            notification.Visible = true;
             // 
             // label1
             // 
@@ -114,6 +115,7 @@
             // FormChat
             // 
             AutoScaleMode = AutoScaleMode.None;
+            BackgroundImageLayout = ImageLayout.Stretch;
             ClientSize = new Size(800, 640);
             Controls.Add(lblConnectionStatus);
             Controls.Add(label1);
@@ -139,7 +141,7 @@
         private RichTextBox txtbText;
         private Button btnSend;
         private ListBox lstUsers;
-        private NotifyIcon notifyIcon1;
+        private NotifyIcon notification;
         private Label label1;
     }
 }
