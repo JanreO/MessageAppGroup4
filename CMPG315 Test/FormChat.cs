@@ -211,7 +211,6 @@ namespace CMPG315_Test
             string timestamp = DateTime.Now.ToString("HH:mm");
             if (string.IsNullOrEmpty(message))
             {
-                MessageBox.Show("Message cannot be empty.");
                 return;
             }
 
@@ -301,12 +300,7 @@ namespace CMPG315_Test
 
         private void lstUsers_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (lstUsers.SelectedItem != null)
-            {
-                _currentChat = lstUsers.SelectedItem.ToString();
-                txtbChat.Clear();
-                LoadChatHistory(_currentChat);
-            }
+ 
         }
 
         private void LoadChatHistory(string selectedUser)
