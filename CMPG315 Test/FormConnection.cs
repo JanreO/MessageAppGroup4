@@ -12,6 +12,7 @@ namespace CMPG315_Test
         public FormConnection()
         {
             InitializeComponent();
+            this.Text = "Connect";
             this.Load += FormConnection_Load;
         }
 
